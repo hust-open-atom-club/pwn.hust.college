@@ -71,6 +71,14 @@ def extra_boot_flags():
     if os.path.exists("/challenge/.panic_on_oops"):
         panic_on_oops = True
 
+    nosmap = False
+    if os.path.exists("/challenge/.nosmap"):
+        nosmap = True
+
+    nosmep = False
+    if os.path.exists("/challenge/.nosmep"):
+        nosmep = True
+
     result = []
     if nokaslr:
         result.append("nokaslr")
@@ -81,6 +89,12 @@ def extra_boot_flags():
     if panic_on_oops:
         result.append("oops=panic")
         result.append("panic_on_warn=1")
+
+    if nosmap:
+        result.append("nosmap")
+
+    if nosmep:
+        result.append("nosmep")
 
     return result
 

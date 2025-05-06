@@ -290,7 +290,7 @@ FROM builder-radare2-${INSTALL_RADARE2} AS builder-radare2
 FROM builder AS builder-aflplusplus-no
 FROM builder AS builder-aflplusplus-yes
 RUN <<EOF
-    git clone --depth 1 https://github.com/aflplusplus/aflplusplus /opt/aflplusplus
+    git clone --depth 1 https://github.com/aflplusplus/aflplusplus -b v4.21c  /opt/aflplusplus
     cd /opt/aflplusplus
     make distrib
     make install
@@ -413,7 +413,7 @@ FROM essentials AS builder-desktop-angr-management-yes
 COPY desktop/angr-management.desktop /usr/share/applications/
 ARG UBUNTU_VERSION=20.04
 RUN <<EOF
-    wget -q -O - https://github.com/angr/angr-management/releases/download/nightly/angr-management-ubuntu-${UBUNTU_VERSION}.tar.gz | tar xvz -C /opt
+    wget -q -O - https://github.com/angr/angr-management/releases/download/v9.2.139/angr-management-ubuntu-${UBUNTU_VERSION}.tar.gz | tar xvz -C /opt
 EOF
 
 FROM builder-desktop-angr-management-${INSTALL_ANGR_MANAGEMENT} AS builder-desktop-angr-management
@@ -456,12 +456,12 @@ FROM essentials AS builder-desktop-binja-free-no
 FROM essentials AS builder-desktop-binja-free-yes
 
 COPY desktop/binary-ninja.desktop /usr/share/applications/
-RUN <<EOF
-    wget -O /tmp/BinaryNinja-free.zip https://cdn.binary.ninja/installers/BinaryNinja-free.zip
-    unzip -d /opt /tmp/BinaryNinja-free.zip
-    wget -O /opt/binaryninja/icon.png  https://binary.ninja/icons/android-chrome-192x192.png
-    rm /tmp/BinaryNinja-free.zip
-EOF
+# RUN <<EOF
+#     wget -O /tmp/BinaryNinja-free.zip https://cdn.binary.ninja/installers/BinaryNinja-free.zip
+#     unzip -d /opt /tmp/BinaryNinja-free.zip
+#     wget -O /opt/binaryninja/icon.png  https://binary.ninja/icons/android-chrome-192x192.png
+#     rm /tmp/BinaryNinja-free.zip
+# EOF
 
 FROM builder-desktop-binja-free-${INSTALL_BINJA_FREE} AS builder-desktop-binja-free
 

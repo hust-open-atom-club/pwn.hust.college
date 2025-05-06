@@ -112,12 +112,108 @@ def start():
 
     kvm = os.path.exists("/dev/kvm")
     cpu = "host" if kvm else "qemu64"
+
+    root_image_path = None
+    root_fs_args = []
+    kernel_root_params = ""
+    challenge_dir = "/challenge/"
+    decompressed_image_path = None
+
+    if os.path.isdir(challenge_dir):
+        try:
+            print(f"[*] Scanning {challenge_dir} for compressed images (.xz)...", file=sys.stderr)
+            for filename in os.listdir(challenge_dir):
+                if filename.endswith(".xz"):
+                    xz_path = os.path.join(challenge_dir, filename)
+                    output_path = xz_path[:-3]
+
+                    needs_decompression = True
+                    if os.path.isfile(output_path):
+                       try:
+                           xz_mtime = os.path.getmtime(xz_path)
+                           out_mtime = os.path.getmtime(output_path)
+                           if out_mtime >= xz_mtime:
+                               print(f"[*] Found existing decompressed file {output_path} which is up-to-date. Skipping decompression.", file=sys.stderr)
+                               needs_decompression = False
+                               decompressed_image_path = output_path
+                           else:
+                               print(f"[*] Found existing decompressed file {output_path}, but it's older than {xz_path}. Re-decompressing.", file=sys.stderr)
+                       except OSError as e:
+                           print(f"[*] Warning: Could not get mtime for files, proceeding with decompression check: {e}", file=sys.stderr)
+
+
+                    if needs_decompression:
+                        print(f"[*] Found compressed image: {xz_path}. Attempting decompression...", file=sys.stderr)
+                        cmd = ["xz", "-d", "-k", "--force", xz_path]
+                        try:
+                            result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=300)
+                            print(f"[*] Successfully decompressed {xz_path} to {output_path}", file=sys.stderr)
+                            if os.path.isfile(output_path):
+                                decompressed_image_path = output_path
+                            else:
+                                print(f"[*] Warning: xz command succeeded but output file {output_path} not found.", file=sys.stderr)
+                        except FileNotFoundError:
+                            print(f"[*] Error: 'xz' command not found. Cannot decompress {xz_path}. Install xz-utils.", file=sys.stderr)
+                        except subprocess.TimeoutExpired:
+                             print(f"[*] Error: Decompression of {xz_path} timed out.", file=sys.stderr)
+                        except subprocess.CalledProcessError as e:
+                            print(f"[*] Error: Failed to decompress {xz_path}. Return code: {e.returncode}", file=sys.stderr)
+                            print(f"[*]   xz stderr: {e.stderr}", file=sys.stderr)
+                            print(f"[*]   xz stdout: {e.stdout}", file=sys.stderr)
+                        except Exception as e:
+                            print(f"[*] Error: An unexpected error occurred during decompression of {xz_path}: {e}", file=sys.stderr)
+
+                    if decompressed_image_path:
+                        break
+
+        except OSError as e:
+            print(f"[*] Warning: Error accessing {challenge_dir} for .xz scan: {e}. Proceeding without decompression check.", file=sys.stderr)
+            pass
+
+    if decompressed_image_path:
+        root_image_path = decompressed_image_path
+        print(f"[*] Using decompressed image: {root_image_path}", file=sys.stderr)
+
+    if not root_image_path and os.path.isdir(challenge_dir):
+        try:
+            print(f"[*] Scanning {challenge_dir} for existing root images (.raw, .img)...", file=sys.stderr)
+            for filename in os.listdir(challenge_dir):
+                if filename.endswith(".raw") or filename.endswith(".img"):
+                    found_path = os.path.join(challenge_dir, filename)
+                    if found_path != decompressed_image_path:
+                       root_image_path = found_path
+                       print(f"[*] Found existing root image: {root_image_path}", file=sys.stderr)
+                       break
+        except OSError as e:
+             print(f"[*] Warning: Error accessing {challenge_dir} for .raw/.img scan: {e}. Falling back to 9p.", file=sys.stderr)
+             pass
+
+    if root_image_path and os.path.isfile(root_image_path):
+        print(f"[*] Configuring QEMU to use virtio block device for {root_image_path}.", file=sys.stderr)
+        root_fs_args = [
+            "-drive", f"file={root_image_path},format=raw,index=0,media=disk,if=virtio"
+        ]
+        kernel_root_params = "root=/dev/vda rw"
+    else:
+        if root_image_path:
+             print(f"[*] Warning: Image path {root_image_path} was determined, but it's not a valid file. Falling back to 9p.", file=sys.stderr)
+        elif decompressed_image_path:
+             print(f"[*] Warning: Decompression was attempted but resulted path {decompressed_image_path} is not valid. Falling back to 9p.", file=sys.stderr)
+        else:
+             print(f"[*] No suitable image (.xz, .raw, .img) found in {challenge_dir}. Using default 9p passthrough for root filesystem.", file=sys.stderr)
+        root_fs_args = [
+            "-fsdev", "local,id=rootfs,path=/,security_model=passthrough",
+            "-device", "virtio-9p-pci,fsdev=rootfs,mount_tag=/dev/root",
+        ]
+        kernel_root_params = "rw rootfstype=9p rootflags=trans=virtio"
+
+    append_string = f"{kernel_root_params} console=ttyS0 init=/opt/pwn.college/vm/init {flags}"
+
     qemu_argv = [
         "/usr/bin/qemu-system-x86_64",
         "-kernel", bzImage,
         "-cpu", f"{cpu},smep,smap",
-        "-fsdev", "local,id=rootfs,path=/,security_model=passthrough",
-        "-device", "virtio-9p-pci,fsdev=rootfs,mount_tag=/dev/root",
+        *root_fs_args,
         "-fsdev", "local,id=homefs,path=/home/hacker,security_model=passthrough",
         "-device", "virtio-9p-pci,fsdev=homefs,mount_tag=/home/hacker",
         "-device", "e1000,netdev=net0",
@@ -126,7 +222,7 @@ def start():
         "-smp", "2" if kvm else "1",
         "-nographic",
         "-monitor", "none",
-        "-append", f"rw rootfstype=9p rootflags=trans=virtio console=ttyS0 init=/opt/pwn.college/vm/init {flags}",
+        "-append", append_string,
     ]
     if kvm:
         qemu_argv.append("-enable-kvm")

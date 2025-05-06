@@ -12,5 +12,5 @@ DOJO_PREREQUISITES = {
     "leagueconference": ["celadon", "fuchsia", "cinnabar", "viridian"],
     "system-security": ["welcome"],
     "system-security-lab-2024": ["welcome"],
-    "software-security-lab-2024": ["welcome"],
+    #"software-security-lab-2024": ["welcome"],
 }

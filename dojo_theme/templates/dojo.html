@@ -27,11 +27,11 @@
   {% if dojo.description %}
   <p>{{ dojo.description | markdown }}</p>
   <br>
-    {% if dojo.repository_type %}
-    <p>本道馆的源码位于 <a href="https://{{ dojo.repository_type}}.com/{{ dojo.repository}}">{{ dojo.repository}}</a> 仓库中，详情请查阅仓库文件。</p>
-    {% else %}
-    <p>本道馆的源码位于 <a href="https://github.com/{{ dojo.repository}}">{{ dojo.repository}}</a> 仓库中，详情请查阅仓库文件。</p>
-    {% endif %}
+  {% endif %}
+  {% if dojo.repository_type %}
+  <p>本道馆的源码位于 <a href="https://{{ dojo.repository_type}}.com/{{ dojo.repository}}">{{ dojo.repository}}</a> 仓库中，详情请查阅仓库文件。</p>
+  {% else %}
+  <p>本道馆的源码位于 <a href="https://github.com/{{ dojo.repository}}">{{ dojo.repository}}</a> 仓库中，详情请查阅仓库文件。</p>
   {% endif %}
   </div>
   <div class="row text-center">

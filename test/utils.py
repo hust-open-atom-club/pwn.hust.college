@@ -39,7 +39,7 @@ def make_dojo_official(dojo_rid, admin_session):
 def create_dojo(repository_type,repository, *, session):
     test_public_key = f"public/{repository}"
     test_private_key = f"private/{repository}"
-    create_dojo_json = { "repository_type":repository_type,"repository": repository,  "public_key": test_public_key, "private_key": test_private_key }
+    create_dojo_json = {"repository_type": repository_type, "repository": repository, "public_key": test_public_key, "private_key": test_private_key }
     response = session.post(f"{PROTO}://{HOST}/pwncollege_api/v1/dojo/create", json=create_dojo_json)
     assert response.status_code == 200, f"Expected status code 200, but got {response.status_code} - {response.json()}"
     dojo_reference_id = response.json()["dojo"]

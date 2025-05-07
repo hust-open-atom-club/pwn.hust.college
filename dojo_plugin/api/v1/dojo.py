@@ -55,7 +55,7 @@ def create_dojo_yml(user, spec):
 
     return {"success": True, "dojo": dojo.reference_id}, 200
 
-def create_dojo(user,repository_type, repository, public_key, private_key):
+def create_dojo(user, repository_type, repository, public_key, private_key):
     DOJO_EXISTS = "This repository already exists as a dojo"
 
     try:
@@ -64,10 +64,11 @@ def create_dojo(user,repository_type, repository, public_key, private_key):
 
         assert not Dojos.query.filter_by(repository=repository).first(), DOJO_EXISTS
 
-        dojo_dir = dojo_clone(repository_type,repository, private_key)
+        dojo_dir = dojo_clone(repository_type, repository, private_key)
         dojo_path = pathlib.Path(dojo_dir.name)
 
         dojo = dojo_from_dir(dojo_path)
+        dojo.repository_type = repository_type
         dojo.repository = repository
         dojo.public_key = public_key
         dojo.private_key = private_key
@@ -169,7 +170,7 @@ class CreateDojo(Resource):
         data = request.get_json()
         user = get_current_user()
 
-        repository_type = data.get("repository_type","github")
+        repository_type = data.get("repository_type", "github")
         repository = data.get("repository", "")
         public_key = data.get("public_key", "")
         private_key = data.get("private_key", "").replace("\r\n", "\n")
@@ -180,7 +181,7 @@ class CreateDojo(Resource):
         if not is_admin() and cache.get(key) is not None:
             return {"success": False, "error": "You can only create 1 dojo per day."}, 429
 
-        result = create_dojo(user, repository_type , repository, public_key, private_key)
+        result = create_dojo(user, repository_type, repository, public_key, private_key)
         if result[0]["success"]:
             cache.set(key, 1, timeout=timeout)
 

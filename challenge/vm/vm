@@ -105,6 +105,86 @@ def execve(argv):
     os.execve(argv[0], argv, os.environ)
 
 
+def decompress_first_xz():
+    """Finds the first .xz file in /challenge/ and decompresses it ONLY if the output file is missing.
+       Returns the path to the valid output file if found/decompressed, else None."""
+    challenge_dir = "/challenge/"
+    xz_found = False
+    valid_output_path = None
+
+    if not os.path.isdir(challenge_dir):
+        print(f"[*] Info: Directory {challenge_dir} not found during xz scan.", file=sys.stderr)
+        return None # Not an error, just no dir to scan
+
+    try:
+        # print(f"[*] Scanning {challenge_dir} for compressed images (.xz)...", file=sys.stderr)
+        for filename in os.listdir(challenge_dir):
+            if filename.endswith(".xz"):
+                xz_found = True
+                xz_path = os.path.join(challenge_dir, filename)
+                output_path = xz_path[:-3]
+                print(f"[*] Found compressed image candidate: {xz_path}", file=sys.stderr)
+
+                # --- BEGIN MODIFICATION: Only decompress if output is missing ---
+                if os.path.isfile(output_path):
+                    print(f"[*] Output file {output_path} already exists. Skipping decompression.", file=sys.stderr)
+                    needs_decompression = False
+                    valid_output_path = output_path # Use existing
+                else:
+                    print(f"[*] Output file {output_path} is missing. Needs decompression.", file=sys.stderr)
+                    needs_decompression = True
+                # --- END MODIFICATION ---
+
+                # --- Removed timestamp checking logic ---
+
+                if needs_decompression:
+                    print(f"[*] Attempting decompression of {xz_path}...", file=sys.stderr)
+                    cmd = ["xz", "-d", "-k", "--force", xz_path]
+                    try:
+                        # Ensure the user running vm has permissions to write to /challenge if needed.
+                        result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=300)
+                        print(f"[*] Successfully decompressed {xz_path} to {output_path}", file=sys.stderr)
+                        if os.path.isfile(output_path):
+                            valid_output_path = output_path
+                            # --- BEGIN MODIFICATION: Set file permissions ---
+                            try:
+                                os.chmod(output_path, 0o750)
+                                print(f"[*] Set permissions of {output_path} to 750.", file=sys.stderr)
+                            except OSError as e:
+                                print(f"[*] Warning: Failed to set permissions on {output_path}: {e}", file=sys.stderr)
+                            # --- END MODIFICATION ---
+                        else:
+                            print(f"[*] Warning: xz command succeeded but output file {output_path} not found.", file=sys.stderr)
+                    except FileNotFoundError:
+                        print(f"[*] Error: 'xz' command not found. Cannot decompress {xz_path}. Install xz-utils.", file=sys.stderr)
+                    except subprocess.TimeoutExpired:
+                        print(f"[*] Error: Decompression of {xz_path} timed out.", file=sys.stderr)
+                    except subprocess.CalledProcessError as e:
+                        print(f"[*] Error: Failed to decompress {xz_path}. Return code: {e.returncode}", file=sys.stderr)
+                        print(f"[*]   xz stderr: {e.stderr}", file=sys.stderr)
+                        print(f"[*]   xz stdout: {e.stdout}", file=sys.stderr)
+                    except Exception as e:
+                        print(f"[*] Error: An unexpected error occurred during decompression of {xz_path}: {e}", file=sys.stderr)
+
+                break # Stop after processing the first .xz file found
+
+        # No message if not found, keep start() cleaner
+        # if not xz_found:
+        #     print(f"[*] No .xz files found in {challenge_dir}.", file=sys.stderr)
+
+    except OSError as e:
+        print(f"[*] Warning: Error accessing {challenge_dir} for .xz scan: {e}.", file=sys.stderr)
+
+    # Return the path if valid, otherwise None
+    if valid_output_path and os.path.isfile(valid_output_path):
+        return valid_output_path
+    else:
+        # If decompression failed or xz was found but output isn't valid, print a warning
+        if xz_found and not valid_output_path:
+             print(f"[*] Warning: Decompression failed or produced an invalid file from the first .xz found.", file=sys.stderr)
+        return None
+
+
 def start():
     flags = " ".join(flag for flag in extra_boot_flags())
 
@@ -117,98 +197,70 @@ def start():
     root_fs_args = []
     kernel_root_params = ""
     challenge_dir = "/challenge/"
-    decompressed_image_path = None
 
-    if os.path.isdir(challenge_dir):
-        try:
-            print(f"[*] Scanning {challenge_dir} for compressed images (.xz)...", file=sys.stderr)
-            for filename in os.listdir(challenge_dir):
-                if filename.endswith(".xz"):
-                    xz_path = os.path.join(challenge_dir, filename)
-                    output_path = xz_path[:-3]
+    # --- BEGIN INTEGRATION ---
+    # 1. Attempt to find/decompress .xz first
+    print("[*] Checking for/decompressing .xz image if needed...", file=sys.stderr)
+    decompressed_path = decompress_first_xz()
+    if decompressed_path:
+        root_image_path = decompressed_path
+        print(f"[*] Using image from xz: {root_image_path}", file=sys.stderr)
 
-                    needs_decompression = True
-                    if os.path.isfile(output_path):
-                       try:
-                           xz_mtime = os.path.getmtime(xz_path)
-                           out_mtime = os.path.getmtime(output_path)
-                           if out_mtime >= xz_mtime:
-                               print(f"[*] Found existing decompressed file {output_path} which is up-to-date. Skipping decompression.", file=sys.stderr)
-                               needs_decompression = False
-                               decompressed_image_path = output_path
-                           else:
-                               print(f"[*] Found existing decompressed file {output_path}, but it's older than {xz_path}. Re-decompressing.", file=sys.stderr)
-                       except OSError as e:
-                           print(f"[*] Warning: Could not get mtime for files, proceeding with decompression check: {e}", file=sys.stderr)
-
-
-                    if needs_decompression:
-                        print(f"[*] Found compressed image: {xz_path}. Attempting decompression...", file=sys.stderr)
-                        cmd = ["xz", "-d", "-k", "--force", xz_path]
-                        try:
-                            result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=300)
-                            print(f"[*] Successfully decompressed {xz_path} to {output_path}", file=sys.stderr)
-                            if os.path.isfile(output_path):
-                                decompressed_image_path = output_path
-                            else:
-                                print(f"[*] Warning: xz command succeeded but output file {output_path} not found.", file=sys.stderr)
-                        except FileNotFoundError:
-                            print(f"[*] Error: 'xz' command not found. Cannot decompress {xz_path}. Install xz-utils.", file=sys.stderr)
-                        except subprocess.TimeoutExpired:
-                             print(f"[*] Error: Decompression of {xz_path} timed out.", file=sys.stderr)
-                        except subprocess.CalledProcessError as e:
-                            print(f"[*] Error: Failed to decompress {xz_path}. Return code: {e.returncode}", file=sys.stderr)
-                            print(f"[*]   xz stderr: {e.stderr}", file=sys.stderr)
-                            print(f"[*]   xz stdout: {e.stdout}", file=sys.stderr)
-                        except Exception as e:
-                            print(f"[*] Error: An unexpected error occurred during decompression of {xz_path}: {e}", file=sys.stderr)
-
-                    if decompressed_image_path:
-                        break
-
-        except OSError as e:
-            print(f"[*] Warning: Error accessing {challenge_dir} for .xz scan: {e}. Proceeding without decompression check.", file=sys.stderr)
-            pass
-
-    if decompressed_image_path:
-        root_image_path = decompressed_image_path
-        print(f"[*] Using decompressed image: {root_image_path}", file=sys.stderr)
-
+    # 2. If no valid image from .xz, look for existing .raw or .img
     if not root_image_path and os.path.isdir(challenge_dir):
         try:
             print(f"[*] Scanning {challenge_dir} for existing root images (.raw, .img)...", file=sys.stderr)
             for filename in os.listdir(challenge_dir):
                 if filename.endswith(".raw") or filename.endswith(".img"):
-                    found_path = os.path.join(challenge_dir, filename)
-                    if found_path != decompressed_image_path:
-                       root_image_path = found_path
-                       print(f"[*] Found existing root image: {root_image_path}", file=sys.stderr)
-                       break
+                    # Ensure it's not the *source* xz file if names overlap (e.g. foo.img and foo.img.xz)
+                    # This simple check prevents using the xz file itself if decompression failed
+                    if not filename.endswith('.xz'):
+                       found_path = os.path.join(challenge_dir, filename)
+                       # Check if this raw/img file is the one we just decompressed (already handled)
+                       if found_path != decompressed_path:
+                            root_image_path = found_path
+                            print(f"[*] Found existing root image: {root_image_path}", file=sys.stderr)
+                            break # Use the first one found
         except OSError as e:
              print(f"[*] Warning: Error accessing {challenge_dir} for .raw/.img scan: {e}. Falling back to 9p.", file=sys.stderr)
              pass
+    # --- END INTEGRATION ---
 
+    # 3. Configure QEMU based on the determined image path, or fall back to 9p
     if root_image_path and os.path.isfile(root_image_path):
         print(f"[*] Configuring QEMU to use virtio block device for {root_image_path}.", file=sys.stderr)
+        print(f"[*] Configuring QEMU to use IDE disk for {root_image_path}.", file=sys.stderr)
         root_fs_args = [
-            "-drive", f"file={root_image_path},format=raw,index=0,media=disk,if=virtio"
+            "-drive", f"file={root_image_path},format=raw,index=0,media=disk,if=ide"
         ]
-        kernel_root_params = "root=/dev/vda rw"
+        kernel_root_params = "root=/dev/sda1 rw"
+
+        # --- BEGIN Add host root share only when using image ---
+        print("[*] Adding 9p share for host root (tag /hostroot) to access /flag.", file=sys.stderr)
+        root_fs_args.extend([
+            "-fsdev", "local,id=hostroot,path=/,security_model=passthrough",
+            "-device", "virtio-9p-pci,fsdev=hostroot,mount_tag=/hostroot",
+            "-fw_cfg", "name=opt/guest/flag_content,file=/flag",
+        ])
+        # --- END Add host root share ---
     else:
-        if root_image_path:
+        if root_image_path: # Path determined but file invalid
              print(f"[*] Warning: Image path {root_image_path} was determined, but it's not a valid file. Falling back to 9p.", file=sys.stderr)
-        elif decompressed_image_path:
-             print(f"[*] Warning: Decompression was attempted but resulted path {decompressed_image_path} is not valid. Falling back to 9p.", file=sys.stderr)
-        else:
-             print(f"[*] No suitable image (.xz, .raw, .img) found in {challenge_dir}. Using default 9p passthrough for root filesystem.", file=sys.stderr)
+        else: # No suitable image found from xz or raw/img scan
+             print(f"[*] No suitable image (.xz decompressed, .raw, .img) found or validated in {challenge_dir}. Using default 9p passthrough.", file=sys.stderr)
+        # Use 9p passthrough
         root_fs_args = [
             "-fsdev", "local,id=rootfs,path=/,security_model=passthrough",
             "-device", "virtio-9p-pci,fsdev=rootfs,mount_tag=/dev/root",
         ]
         kernel_root_params = "rw rootfstype=9p rootflags=trans=virtio"
 
-    append_string = f"{kernel_root_params} console=ttyS0 init=/opt/pwn.college/vm/init {flags}"
+    # Construct the final kernel append string
+    init_script_param = ""
+    if "rootfstype=9p" in kernel_root_params:
+        init_script_param = " init=/opt/pwn.college/vm/init"
 
+    append_string = f"{kernel_root_params} console=ttyS0{init_script_param} init=/opt/pwn.college/vm/init {flags}"
     qemu_argv = [
         "/usr/bin/qemu-system-x86_64",
         "-kernel", bzImage,
@@ -216,14 +268,18 @@ def start():
         *root_fs_args,
         "-fsdev", "local,id=homefs,path=/home/hacker,security_model=passthrough",
         "-device", "virtio-9p-pci,fsdev=homefs,mount_tag=/home/hacker",
+        "-fsdev", "local,id=challengefs,path=/challenge,security_model=passthrough",
+        "-device", "virtio-9p-pci,fsdev=challengefs,mount_tag=/challenge",
         "-device", "e1000,netdev=net0",
         "-netdev", "user,id=net0,hostfwd=tcp::22-:22",
         "-m", "2G",
         "-smp", "2" if kvm else "1",
         "-nographic",
+        "-fw_cfg", "name=opt/guest/flag_content,file=/flag",
         "-monitor", "none",
         "-append", append_string,
     ]
+
     if kvm:
         qemu_argv.append("-enable-kvm")
 
@@ -277,9 +333,9 @@ def wait():
         except ConnectionRefusedError:
             pass
         else:
-            data = connection.recv(3)
+            data = connection.recv(10)
             connection.close()
-            if data == b"SSH":
+            if data.startswith(b"SSH-"):
                 break
         time.sleep(0.1)
     else:
@@ -386,6 +442,8 @@ def main():
     build_parser = subparsers.add_parser("build", help="privileged: build vm kernel module")
     build_parser.add_argument("build_path")
 
+    decompress_parser = subparsers.add_parser("decompress", help="privileged: decompress first *.xz image in /challenge")
+
     parser.add_argument('--kaslr', dest='nokaslr', action='store_false', help="privileged: enable kaslr")
     parser.add_argument('--no-kaslr', dest='nokaslr', action='store_true', help="privileged: disable kaslr")
     parser.set_defaults(nokaslr=None)
@@ -397,6 +455,7 @@ def main():
             "modify boot flags": args.nokaslr is None,
             "debug": args.command != "debug",
             "build": args.command != "build",
+            "decompress image": args.command != "decompress",
         }
         for description, validated in privilege_checks.items():
             if not validated:
@@ -411,6 +470,7 @@ def main():
         "debug": lambda: debug() if not in_vm() else error("Error: cannot debug from within vm"),
         "build": lambda: build(args.build_path),
         "logs": lambda: logs(),
+        "decompress": lambda: decompress_first_xz(),
     }
 
     try:

@@ -275,7 +275,6 @@ def start():
         "-m", "2G",
         "-smp", "2" if kvm else "1",
         "-nographic",
-        "-fw_cfg", "name=opt/guest/flag_content,file=/flag",
         "-monitor", "none",
         "-append", append_string,
     ]

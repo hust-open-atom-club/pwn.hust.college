@@ -2,7 +2,7 @@
 
 **Deploy your pwn.hust.college dojo instance** – a customized fork of the original [pwn.college platform](https://github.com/pwncollege/dojo) – to create tailored cybersecurity training environments.
 
-![](docs/static/landing_page.png)
+![Landing Page](docs/static/landing_page.png)
 
 ## Introduction
 
@@ -23,5 +23,5 @@ We love Pull Requests! 🌟
 Have a small update?
 Send a PR so everyone can benefit.
 
-Together, we make this project better for all! 🚀 
+Together, we make this project better for all! 🚀
 Please refer to [CONTRIBUTING.md](/CONTRIBUTING.md) for more details.

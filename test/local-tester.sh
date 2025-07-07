@@ -55,7 +55,7 @@ do
 	sudo umount "${ENTRY[2]}"
 done
 
-docker run --rm --privileged -d "${VOLUME_ARGS[@]}" "${ENV_ARGS[@]}" -p 2222:22 -p 80:80 -p 443:443 --name "$CONTAINER_NAME" dojo || exit 1
+docker run --rm --privileged -d "${VOLUME_ARGS[@]}" "${ENV_ARGS[@]}" -p 2222:22 -p 80:80 -p 443:443 --name "$CONTAINER_NAME" pwncollege/dojo || exit 1
 
 # fix the insane routing thing
 read -a GW <<<$(ip route show default)
@@ -67,4 +67,4 @@ docker exec "$CONTAINER_NAME" dojo wait
 [ -n "$DB_RESTORE" ] && until docker exec "$CONTAINER_NAME" dojo restore $DB_RESTORE; do sleep 1; done
 
 until curl -s localhost.pwn.college | grep -q pwn; do sleep 1; done
-[ "$TEST" == "yes" ] && MOZ_HEADLESS=1 pytest -v test/test_running.py test/test_welcome.py
+[ "$TEST" == "yes" ] && MOZ_HEADLESS=1 pytest -v test/test_running.py

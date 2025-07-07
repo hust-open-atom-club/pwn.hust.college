@@ -5,4 +5,4 @@ award:
 modules:
   - import:
       dojo: example
-      module: hello
+      module: world

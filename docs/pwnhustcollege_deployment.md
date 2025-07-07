@@ -1,10 +1,10 @@
-# pwnhustcollege_deployment.md
+# pwn平台定制化部署
 
-## 平台定制化部署框架
+## 一、平台定制化部署框架
 pwn.hust.college平台基于Docker与QEMU技术构建，在校园网环境下需针对域名访问、证书配置及服务路由进行定制化部署。由于校园网域名解析和SSL证书无法通过自动化流程配置，需通过手动配置NGINX实现服务转发与安全访问，同时保留平台核心的容器化架构与国产化技术支持特性。
 
-## 基础环境准备
-1. **依赖组件安装**  
+## 二、基础环境准备
+ **2.1依赖组件安装**  
    部署前需在校园网服务器中安装Docker、Docker Compose及QEMU相关工具，确保内核支持容器化与嵌套虚拟化：  
    ```bash
    # 安装Docker
@@ -16,7 +16,7 @@ pwn.hust.college平台基于Docker与QEMU技术构建，在校园网环境下需
    apt-get install -y qemu-system-x86 qemu-system-loongarch64
    ```
 
-2. **代码与数据目录配置**  
+ **2.2代码与数据目录配置**  
    克隆平台代码仓库（支持GitHub或Gitee），并创建数据目录用于持久化存储用户数据与挑战配置：  
    ```bash
    # 从Gitee克隆（国内访问优化）
@@ -26,8 +26,8 @@ pwn.hust.college平台基于Docker与QEMU技术构建，在校园网环境下需
    chmod 777 ./platform/data  # 确保容器有读写权限
    ```
 
-## 容器化部署核心配置
-### Docker Compose定制
+## 三、容器化部署核心配置
+### 3.1 Docker Compose定制
 平台核心服务通过`docker-compose.yml`管理，需针对校园网环境调整端口映射与服务依赖：  
 ```yaml
 version: '3'
@@ -82,8 +82,8 @@ services:
       - workspace
 ```
 
-### 国产化环境适配
-1. **操作系统镜像替换**  
+### 3.2 国产化环境适配
+**3.2.1 操作系统镜像替换**  
    在`workspace/Dockerfile`中指定国产openEuler基础镜像，确保挑战环境基于国产化系统：  
    ```dockerfile
    # 替换默认基础镜像为openEuler
@@ -91,15 +91,15 @@ services:
    RUN dnf install -y gcc gdb ghidra  # 安装必要工具
    ```
 
-2. **LoongArch架构支持**  
+**3.2.2 LoongArch架构支持**  
    针对国产LoongArch架构的挑战，需在容器中预装专用工具链：  
    ```dockerfile
    # 安装LoongArch交叉编译工具
    RUN dnf install -y loongarch64-linux-gnu-gcc loongarch64-linux-gnu-gdb
    ```
 
-## NGINX手动配置（校园网核心）
-### 基础路由配置
+## 四、NGINX手动配置（校园网核心）
+### 4.1 基础路由配置
 创建`./nginx/conf.d/default.conf`，实现校园网内部服务转发：  
 ```nginx
 server {
@@ -130,14 +130,14 @@ server {
 }
 ```
 
-### 证书与安全配置（手动部署）
+### 4.2 证书与安全配置（手动部署）
 由于校园网域名无法自动申请公网证书，需使用自签证书或校园网CA颁发的证书：  
-1. **生成自签证书**（仅供内部测试）：  
+**4.2.2 生成自签证书**（仅供内部测试）：  
    ```bash
    openssl req -x509 -newkey rsa:4096 -keyout ./nginx/ssl/key.pem -out ./nginx/ssl/cert.pem -days 365 -nodes
    ```
 
-2. **配置HTTPS（可选）**：  
+**4.2.3 配置HTTPS（可选）**：  
    在NGINX中添加HTTPS支持（需校园网允许443端口）：  
    ```nginx
    server {
@@ -154,9 +154,9 @@ server {
    }
    ```
 
-## 校园网特殊场景处理
-### 网络隔离与访问控制
-1. **限制内部访问**  
+## 五、校园网特殊场景处理
+### 5.1 网络隔离与访问控制
+**5.1.1 限制内部访问**  
    通过`iptables`限制仅校园网IP段（如10.0.0.0/8）访问平台：  
    ```bash
    # 在宿主机执行
@@ -164,7 +164,7 @@ server {
    iptables -A INPUT -p tcp --dport 80 -j DROP
    ```
 
-2. **SSH访问配置**  
+**5.1.2 SSH访问配置**  
    学生需通过校园网SSH访问工作区，需在`workspace`容器中启用SSH服务并映射端口：  
    ```yaml
    # 在docker-compose.yml中添加
@@ -173,7 +173,7 @@ server {
        - "2222:22"  # 宿主机2222端口映射到容器SSH
    ```
 
-### 数据备份与同步
+### 5.2 数据备份与同步
 针对校园网服务器可能的断电或维护，配置定时备份任务：  
 ```bash
 # 创建备份脚本（每日凌晨3点执行）
@@ -189,8 +189,8 @@ chmod +x ./platform/backup.sh
 echo "0 3 * * * $(pwd)/platform/backup.sh" | crontab -
 ```
 
-## 部署验证与问题排查
-1. **服务启动检查**  
+## 5.3 部署验证与问题排查
+**5.3.1 服务启动检查**  
    启动所有服务后，通过以下命令验证核心组件状态：  
    ```bash
    docker-compose up -d
@@ -200,7 +200,7 @@ echo "0 3 * * * $(pwd)/platform/backup.sh" | crontab -
    docker-compose logs -f ctfd
    ```
 
-2. **常见问题解决**  
+**5.3.2 常见问题解决**  
    - **端口冲突**：若80端口被校园网其他服务占用，修改NGINX映射端口（如`8080:80`）并更新校园网DNS解析；  
    - **国产化工具缺失**：检查`Dockerfile`中是否正确安装openEuler工具包，可通过`docker exec -it 容器ID dnf list installed`验证；  
    - **证书信任问题**：学生访问时若提示证书错误，需手动将校园网CA证书导入浏览器或操作系统信任列表。

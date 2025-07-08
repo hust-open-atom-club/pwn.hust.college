@@ -1,39 +1,69 @@
 name: Test building and running dojo
+
 on: [push, pull_request]
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}:${{ github.sha }}
+
 jobs:
-  smoketest:
+  build:
+    name: Build and Push Docker Image
     runs-on: ubuntu-22.04
-    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - uses: actions/checkout@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          tags: dojo-test
-          load: true
-          # cache-from: type=gha
-          # cache-to: type=gha,mode=max
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }} 
 
-      - uses: actions/setup-python@v4
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
         with:
-          python-version: '3.10'
-          cache: 'pip'
+          context: .
+          push: true 
+          tags: ${{ env.IMAGE_NAME }} 
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Prepare Firefox
-        uses: browser-actions/setup-firefox@latest
+  setup-test-environment:
+    name: Setup Test Environment
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      container-ready: ${{ steps.container-check.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install test dependencies
-        run: pip install pytest pytest-dependency requests selenium
-
-      - name: Run dojo
+      - name: Run dojo from pulled image
         run: |
+          docker pull ${{ env.IMAGE_NAME }}
           docker run \
             --privileged \
             -d \
             -v ./dojo-test-data:/opt/pwn.college/data:shared \
             -p 2222:22 -p 80:80 -p 443:443 \
             --name dojo-test \
-            dojo-test
+            ${{ env.IMAGE_NAME }}
 
       - name: Wait for services to build and start
         run: |
@@ -50,9 +80,57 @@ jobs:
           done
 
           kill $log_pid
-          exit 0
+          echo "ready=true" >> $GITHUB_OUTPUT
+        id: container-check
 
-      - name: Run tests against dojo
+  all-tests:
+    name: Run All Tests
+    needs: setup-test-environment
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: read
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          
+      - name: Prepare Firefox
+        uses: browser-actions/setup-firefox@latest
+        
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-dependency requests selenium pytest-cov pytest-xdist
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run API tests with coverage
+        run: |
+          pytest -vrpP --cov=dojo_plugin --cov-report=xml:./coverage-api.xml ./test -xvs -k "test_unauthenticated or test_create_dojo or test_delete_dojo" || (docker exec dojo-test docker compose logs && false)
+
+      - name: Run dojo management tests with coverage
+        run: |
+          pytest -vrpP --cov=dojo_plugin --cov-append --cov-report=xml:./coverage-dojo.xml ./test -xvs -k "test_create_import_dojo or test_join_dojo or test_dojo_completion" || (docker exec dojo-test docker compose logs && false)
+
+      - name: Run challenge tests with coverage
         run: |
           export MOZ_HEADLESS=1
-          pytest -vrpP ./test || (docker exec dojo-test docker compose logs && false)
+          pytest -vrpP --cov=dojo_plugin --cov-append --cov-report=xml:./coverage-challenge.xml ./test -xvs -k "test_start_challenge or test_workspace_challenge" || (docker exec dojo-test docker compose logs && false)
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage-api.xml,./coverage-dojo.xml,./coverage-challenge.xml
+          flags: all-tests
+          fail_ci_if_error: false

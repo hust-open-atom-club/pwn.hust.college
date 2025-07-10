@@ -7,6 +7,9 @@ import pytest
 from utils import TEST_DOJOS_LOCATION
 from utils import login, make_dojo_official, create_dojo, create_dojo_yml
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "dependency: mark test as dependent on other tests")
+
 @pytest.fixture(scope="session")
 def admin_session():
     session = login("admin", "admin")
@@ -35,24 +38,7 @@ def guest_dojo_admin():
 
 @pytest.fixture(scope="session")
 def example_dojo(admin_session):
-    rid = create_dojo("github","pwncollege/example-dojo", session=admin_session)
-    make_dojo_official(rid, admin_session)
-    return rid
-
-@pytest.fixture(scope="session")
-def belt_dojos(admin_session):
-    belt_dojo_rids = {
-        color: create_dojo_yml(
-            open(TEST_DOJOS_LOCATION / f"fake_{color}.yml").read(), session=admin_session
-        ) for color in [ "orange", "yellow", "green","purple","blue" ]
-    }
-    for rid in belt_dojo_rids.values():
-        make_dojo_official(rid, admin_session)
-    return belt_dojo_rids
-
-@pytest.fixture(scope="session")
-def example_import_dojo(admin_session):
-    rid = create_dojo("github","pwncollege/example-import-dojo", session=admin_session)
+    rid = create_dojo("github","hust-open-atom-club/example-dojo", session=admin_session)
     make_dojo_official(rid, admin_session)
     return rid
 

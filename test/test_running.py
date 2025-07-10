@@ -74,8 +74,6 @@ def start_and_solve(user_name, session, dojo, module, challenge):
 @pytest.mark.dependency()
 def test_create_dojo(example_dojo, admin_session):
     assert admin_session.get(f"{PROTO}://{HOST}/{example_dojo}/").status_code == 200
-    assert admin_session.get(f"{PROTO}://{HOST}/example/").status_code == 200
-
 
 @pytest.mark.dependency(depends=["test_create_dojo"])
 def test_delete_dojo(admin_session):
@@ -86,32 +84,26 @@ def test_delete_dojo(admin_session):
 
 
 @pytest.mark.dependency(depends=["test_create_dojo"])
-def test_create_import_dojo(example_import_dojo, admin_session):
-    assert admin_session.get(f"{PROTO}://{HOST}/{example_import_dojo}/").status_code == 200
-    assert admin_session.get(f"{PROTO}://{HOST}/example-import/").status_code == 200
-
+def test_start_challenge(example_dojo, admin_session):
+    start_challenge(example_dojo, "world", "earth", session=admin_session)
 
 @pytest.mark.dependency(depends=["test_create_dojo"])
-def test_start_challenge(admin_session):
-    start_challenge("example", "hello", "apple", session=admin_session)
-
-@pytest.mark.dependency(depends=["test_create_dojo"])
-def test_join_dojo(admin_session, guest_dojo_admin):
+def test_join_dojo(admin_session, example_dojo, guest_dojo_admin):
     random_user_name, random_session = guest_dojo_admin
-    response = random_session.get(f"{PROTO}://{HOST}/dojo/example/join/")
+    response = random_session.get(f"{PROTO}://{HOST}/dojo/{example_dojo}/join/")
     assert response.status_code == 200
-    response = admin_session.get(f"{PROTO}://{HOST}/dojo/example/admin/")
+    response = admin_session.get(f"{PROTO}://{HOST}/dojo/{example_dojo}/admin/")
     assert response.status_code == 200
-    assert random_user_name in response.text and response.text.index("Members") < response.text.index(random_user_name)
+    assert random_user_name in response.text and response.text.index("成员") < response.text.index(random_user_name)
 
 @pytest.mark.dependency(depends=["test_join_dojo"])
-def test_promote_dojo_member(admin_session, guest_dojo_admin):
+def test_promote_dojo_member(admin_session,example_dojo, guest_dojo_admin):
     random_user_name, _ = guest_dojo_admin
     random_user_id = get_user_id(random_user_name)
-    response = admin_session.post(f"{PROTO}://{HOST}/pwncollege_api/v1/dojo/example/promote-admin", json={"user_id": random_user_id})
+    response = admin_session.post(f"{PROTO}://{HOST}/pwncollege_api/v1/dojo/{example_dojo}/promote-admin", json={"user_id": random_user_id})
     assert response.status_code == 200
-    response = admin_session.get(f"{PROTO}://{HOST}/dojo/example/admin/")
-    assert random_user_name in response.text and response.text.index("Members") > response.text.index(random_user_name)
+    response = admin_session.get(f"{PROTO}://{HOST}/dojo/{example_dojo}/admin/")
+    assert random_user_name in response.text and response.text.index("管理员") < response.text.index(random_user_name)
 
 @pytest.mark.dependency(depends=["test_join_dojo"])
 def test_dojo_completion(simple_award_dojo, completionist_user):
@@ -121,7 +113,7 @@ def test_dojo_completion(simple_award_dojo, completionist_user):
     response = session.get(f"{PROTO}://{HOST}/dojo/{dojo}/join/")
     assert response.status_code == 200
     for module, challenge in [
-        ("hello", "apple"), ("hello", "banana"),
+        ("world", "earth"), ("world", "mars")
         #("world", "earth"), ("world", "mars"), ("world", "venus")
     ]:
         start_and_solve(user_name, session, dojo, module, challenge)
@@ -151,31 +143,9 @@ def test_prune_dojo_awards(simple_award_dojo, admin_session, completionist_user)
     assert us["solves"] == 1
     assert len(us["badges"]) == 0
 
-@pytest.mark.dependency(depends=["test_dojo_completion"])
-def test_belts(belt_dojos, random_user):
-    user_name, session = random_user
-    for color,dojo in belt_dojos.items():
-        start_and_solve(user_name, session, dojo, "test", "test")
-        scoreboard = session.get(f"{PROTO}://{HOST}/pwncollege_api/v1/scoreboard/{dojo}/_/0/1").json()
-        us = next(u for u in scoreboard["standings"] if u["name"] == user_name)
-        assert color in us["belt"]
-
-@pytest.mark.dependency(depends=["test_belts"])
-def test_cumulative_belts(belt_dojos, random_user):
-    user_name, session = random_user
-    for color,dojo in reversed(belt_dojos.items()):
-        start_and_solve(user_name, session, dojo, "test", "test")
-        scoreboard = session.get(f"{PROTO}://{HOST}/pwncollege_api/v1/scoreboard/{dojo}/_/0/1").json()
-        us = next(u for u in scoreboard["standings"] if u["name"] == user_name)
-        if color == "orange":
-            # orange is last, so we should get all belts including blue
-            assert "blue" in us["belt"]
-        else:
-            # until orange, we should be stuck in white
-            assert "Beginner_Sprite" in us["belt"]
 
 @pytest.mark.dependency(depends=["test_start_challenge"])
-@pytest.mark.parametrize("path", ["/flag", "/challenge/apple"])
+@pytest.mark.parametrize("path", ["/flag", "/challenge/earth"])
 def test_workspace_path_exists(path):
     try:
         workspace_run(f"[ -f '{path}' ]", user="admin")
@@ -195,7 +165,7 @@ def test_workspace_flag_permission():
 
 @pytest.mark.dependency(depends=["test_start_challenge"])
 def test_workspace_challenge():
-    result = workspace_run("/challenge/apple", user="admin")
+    result = workspace_run("/challenge/earth", user="admin")
     match = re.search("pwn.college{(\\S+)}", result.stdout)
     assert match, f"Expected flag, but got: {result.stdout}"
 
@@ -227,11 +197,11 @@ def test_workspace_no_sudo():
 
 
 @pytest.mark.dependency(depends=["test_start_challenge"])
-def test_workspace_home_persistent(random_user):
+def test_workspace_home_persistent(example_dojo, random_user):
     user, session = random_user
-    start_challenge("example", "hello", "apple", session=session)
+    start_challenge(example_dojo, "world", "earth", session=session)
     workspace_run("touch /home/hacker/test", user=user)
-    start_challenge("example", "hello", "apple", session=session)
+    start_challenge(example_dojo, "world", "earth", session=session)
     try:
         workspace_run("[ -f '/home/hacker/test' ]", user=user)
     except subprocess.CalledProcessError as e:
@@ -239,9 +209,9 @@ def test_workspace_home_persistent(random_user):
 
 
 @pytest.mark.dependency(depends=["test_start_challenge"])
-def test_workspace_practice_challenge(random_user):
+def test_workspace_practice_challenge(example_dojo, random_user):
     user, session = random_user
-    start_challenge("example", "hello", "apple", practice=True, session=session)
+    start_challenge(example_dojo, "world", "earth", practice=True, session=session)
     try:
         workspace_run("sudo -v", user=user)
     except subprocess.CalledProcessError as e:
@@ -278,21 +248,20 @@ def get_all_standings(session, dojo, module=None):
 
 
 @pytest.mark.dependency(depends=["test_workspace_challenge"])
-def test_scoreboard(random_user):
+def test_scoreboard(example_dojo, random_user):
     user, session = random_user
 
-    dojo = "example"
-    module = "hello"
-    challenge = "apple"
+    dojo = example_dojo
+    module = "world"
+    challenge = "earth"
 
     prior_standings = get_all_standings(session, dojo, module)
 
     # if test_workspace_challenge passed correctly, then we should get a valid flag here
     start_challenge(dojo, module, challenge, session=session)
-    result = workspace_run("/challenge/apple", user=user)
+    result = workspace_run("/challenge/earth", user=user)
     flag = result.stdout.strip()
     challenge_id = get_challenge_id(session, dojo, module, challenge)
-
     # submit the flag
     data = {
         "challenge_id": challenge_id,

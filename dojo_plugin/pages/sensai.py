@@ -15,8 +15,11 @@ sensai = Blueprint("pwncollege_sensai", __name__)
 @sensai.route("/sensai")
 @authed_only
 def view_sensai():
+    import os
+    ollama_base_urls = os.environ.get("OLLAMA_BASE_URLS", "")
+    enable_ollama = ollama_base_urls and ollama_base_urls != '""' and ollama_base_urls != "''"
     active = bool(get_current_dojo_challenge())
-    return render_template("iframe.html", iframe_name="sensai", iframe_src="/sensai/", active=active)
+    return render_template("iframe.html", iframe_name="sensai", iframe_src="/sensai/", active=active, enable_ollama=enable_ollama)
 
 
 @sensai.route("/sensai/", methods=["GET", "POST", "DELETE", "OPTIONS"])

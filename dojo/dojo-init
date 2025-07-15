@@ -37,7 +37,7 @@ define KOOK_CHANNEL_ID
 define KOOK_CLIENT_ID
 define KOOK_CLIENT_SECRET
 define KOOK_APP_ID
-
+define OLLAMA_BASE_URLS
 
 mv $DOJO_DIR/data/.config.env $DOJO_DIR/data/config.env
 . $DOJO_DIR/data/config.env

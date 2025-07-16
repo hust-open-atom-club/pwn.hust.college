@@ -3,7 +3,7 @@ import docker
 import pytz
 
 from flask import Blueprint, render_template, redirect, abort
-from CTFd.models import db, Solves, Challenges, Users
+from CTFd.models import db, Solves, Challenges, Users, Awards
 from CTFd.utils.user import get_current_user,is_admin
 from CTFd.utils.decorators.visibility import check_challenge_visibility
 from CTFd.utils.helpers import get_infos
@@ -52,6 +52,14 @@ def listing(dojo):
     user = get_current_user()
     dojo_user = DojoUsers.query.filter_by(dojo=dojo, user=user).first()
     stats = get_stats(dojo)
+    # merge from 58e795eeadbd4ce81d16422aa83daca3a129fa91
+    if dojo.award and "emoji" in dojo.award:
+        awards = Awards.query.where(Awards.category==dojo.hex_dojo_id, Awards.name==dojo.award["emoji"]).order_by(Awards.date.desc()).all()
+    elif dojo.award and "belt" in dojo.award:
+        awards = Awards.query.where(Awards.type=="belt", Awards.name==dojo.award["belt"]).order_by(Awards.date.desc()).all()
+    else:
+        awards = [ ]
+        
     prerequisite_dojo_sub= []
     if not dojo.is_admin():
         check_result, prerequisite_dojo = dojo.check_prerequisites(user)
@@ -73,6 +81,7 @@ def listing(dojo):
         dojo_user=dojo_user,
         stats=stats,
         infos=infos,
+        awards=awards,
     )
 
 

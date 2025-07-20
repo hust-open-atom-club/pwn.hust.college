@@ -80,6 +80,7 @@ services:
       - KOOK_CLIENT_ID=${KOOK_CLIENT_ID}
       - KOOK_CLIENT_SECRET=${KOOK_CLIENT_SECRET}
       - KOOK_APP_ID=${KOOK_APP_ID}
+      - OLLAMA_BASE_URLS=${OLLAMA_BASE_URLS}
     volumes:
       - ./data:/var/data
       - ./data/CTFd/logs:/var/log/CTFd
@@ -191,7 +192,7 @@ services:
     container_name: open-webui
     image: cees3/sensai:v2.37
     environment:
-      - OLLAMA_BASE_URLS=http://222.20.126.129:11434
+      - OLLAMA_BASE_URLS=${OLLAMA_BASE_URLS}
     volumes:
       - open-webui:/app/backend/data
     networks:

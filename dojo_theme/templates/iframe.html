@@ -36,8 +36,10 @@
 {% endblock %}
 
 {% block content %}
-{% if active %}
-<iframe src="{{ iframe_src }}"></iframe>
+{% if iframe_name == "sensai" and not enable_ollama %}
+<h1 class="inactive">本服务未启用<h1>
+{% elif active %}
+  <iframe src="{{ iframe_src }}"></iframe>
 {% else %}
 <h1 class="inactive">没有开启的挑战关卡会话；请开启一个挑战关卡！<h1>
 {% endif %}

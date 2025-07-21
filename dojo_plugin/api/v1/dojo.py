@@ -121,14 +121,12 @@ class UpdateAward(Resource):
     @authed_only
     @dojo_route
     @dojo_admins_only
-    def get(self,dojo):
+    def get(self, dojo):
         users = Users.query.all()
-        users_data = []
         for user in users:
-            update_awards(user)
-            users_data.append(user)
+            if dojo.completed(user):
+                update_awards(user, dojo.challenges[-1].challenge)
         return {"success": True}
-
 
 @dojo_namespace.route("/<dojo>/promote-dojo")
 class PromoteDojo(Resource):

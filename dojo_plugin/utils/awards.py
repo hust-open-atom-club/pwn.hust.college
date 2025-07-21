@@ -29,8 +29,18 @@ def get_user_emojis(user):
         emoji = dojo.award and dojo.award.get('emoji', None)
         if not emoji:
             continue
-        if dojo.completed(user):
-            emojis.append((emoji, dojo.name, dojo.hex_dojo_id))
+        
+        award_at = dojo.award.get('award_at')
+        if award_at is not None:
+            # New logic: Award based on number of solves
+            solves_count = dojo.solves(user=user).count()
+            if solves_count >= award_at:
+                emojis.append((emoji, dojo.name, dojo.hex_dojo_id))
+        else:
+            # Old logic: Award based on full completion
+            if dojo.completed(user):
+                emojis.append((emoji, dojo.name, dojo.hex_dojo_id))
+
     return emojis
 
 def get_belts():
@@ -113,11 +123,32 @@ def update_awards(user, challenge):
         message = f"{user_mention} 恭喜 {user.name} 完成 《{award}》 ！:tada:"
         send_group_message(message, KookChannels.AWARD)
 
-    current_emojis = get_user_emojis(user)
-    for emoji,dojo_name,dojo_id in current_emojis:
-        # note: the category filter is critical, since SQL seems to be unable to query by emoji!
-        emoji_award = Emojis.query.filter_by(user=user, name=emoji, category=dojo_id).first()
-        if emoji_award:
-            continue
+    # Emoji Sync Logic
+    should_have = {
+        dojo_id: (emoji, dojo_name)
+        for emoji, dojo_name, dojo_id in get_user_emojis(user)
+    }
+    has = {
+        award.category: award
+        for award in Emojis.query.filter_by(user_id=user.id).all()
+        if award.category is not None
+    }
+
+    to_delete = set(has.keys()) - set(should_have.keys())
+    for dojo_id in to_delete:
+        db.session.delete(has[dojo_id])
+
+    to_update = set(has.keys()) & set(should_have.keys())
+    for dojo_id in to_update:
+        award = has[dojo_id]
+        correct_emoji, correct_dojo_name = should_have[dojo_id]
+        if award.name != correct_emoji:
+            award.name = correct_emoji
+            award.description = f"Awarded for completing the {correct_dojo_name} dojo."
+
+    to_add = set(should_have.keys()) - set(has.keys())
+    for dojo_id in to_add:
+        emoji, dojo_name = should_have[dojo_id]
         db.session.add(Emojis(user=user, name=emoji, description=f"Awarded for completing the {dojo_name} dojo.", category=dojo_id))
-        db.session.commit()
+
+    db.session.commit()

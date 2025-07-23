@@ -81,6 +81,7 @@ services:
       - KOOK_CLIENT_SECRET=${KOOK_CLIENT_SECRET}
       - KOOK_APP_ID=${KOOK_APP_ID}
       - OLLAMA_BASE_URLS=${OLLAMA_BASE_URLS}
+      - OPENAI_API_BASE_URL=${OPENAI_API_BASE_URL}
     volumes:
       - ./data:/var/data
       - ./data/CTFd/logs:/var/log/CTFd
@@ -190,9 +191,11 @@ services:
 
   open-webui:
     container_name: open-webui
-    image: cees3/sensai:v2.37
+    build: /opt/sensai
     environment:
       - OLLAMA_BASE_URLS=${OLLAMA_BASE_URLS}
+      - OPENAI_API_BASE_URL=${OPENAI_API_BASE_URL}
+      - HF_ENDPOINT=https://hf-mirror.com
     volumes:
       - open-webui:/app/backend/data
     networks:

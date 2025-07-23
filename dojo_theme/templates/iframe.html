@@ -36,7 +36,7 @@
 {% endblock %}
 
 {% block content %}
-{% if iframe_name == "sensai" and not enable_ollama %}
+{% if iframe_name == "sensai" and not enable_ollama and not enable_openai %}
 <h1 class="inactive">本服务未启用<h1>
 {% elif active %}
   <iframe src="{{ iframe_src }}"></iframe>

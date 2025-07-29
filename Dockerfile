@@ -23,7 +23,7 @@ RUN echo '{ "data-root": "/opt/pwn.college/data/docker" }' > /etc/docker/daemon.
 RUN docker buildx install
 RUN git clone --branch 3.6.0 https://github.com/CTFd/CTFd /opt/CTFd
 
-RUN git clone --branch dojo https://github.com/CeS-3/sensai.git /opt/sensai
+RUN git clone --branch dojo https://github.com/hust-open-atom-club/sensai.git /opt/sensai
 
 RUN wget -O /etc/docker/seccomp.json https://gitee.com/mirrors/moby/raw/master/profiles/seccomp/default.json
 

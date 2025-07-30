@@ -211,6 +211,9 @@ RUN <<EOF
     code-server --extensions-dir=/opt/code-server/extensions \
     	--install-extension ms-python.python \
      	--install-extension /tmp/ms-vscode-cpptools.vsix
+        --install-extension juanblanco.solidity \
+        --install-extension humao.rest-client \
+        --install-extension shd101wyy.markdown-preview-enhanced
     chmod +x /opt/code-server/extensions/ms-vscode.cpptools-*/bin/{cpptools*,libc.so}
     rm -rf /root/.cache/code-server /root/.local/share/code-server /tmp/ms-vscode-cpptools.vsix
 EOF

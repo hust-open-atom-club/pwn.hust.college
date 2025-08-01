@@ -1,52 +1,55 @@
-# Deployment
+## 部署 (Deployment)
 
 ```sh
+# 设置 Docker CE 的下载镜像源为华中科技大学镜像站，并执行官方安装脚本
 export DOWNLOAD_URL="https://mirrors.hust.edu.cn/docker-ce" && curl -fsSL https://get.docker.com | /bin/sh
+# 从 GitHub 克隆 dojo 的源代码
 git clone https://github.com/hust-open-atom-club/dojo.git
+# 使用克隆下来的 Dockerfile 构建一个名为 pwncollege/dojo 的 Docker 镜像
 docker build -t pwncollege/dojo dojo
-docker run --privileged -d -v "dojo:/opt/pwn.college:shared" -p 22:22 -p 80:80 -p 443:443 --name dojo pwncollege/dojo
+# 运行 dojo 容器
+sudo docker run --privileged -d -v "$(pwd)/dojo:/opt/pwn.college:shared" -p 22:22 -p 80:80 -p 443:443 --name dojo pwncollege/dojo
 ```
 
-This will run the initial setup, including building the challenge docker image. It would build docker image based on the host architecture.
+这个过程会运行初始设置，包括构建挑战所用的 Docker 镜像。它会根据宿主机的硬件架构来构建镜像。
 
-### Local Setup
+### 本地设置 (Local Setup)
 
-By default, the dojo will initialize itself to listen on and serve from `localhost.pwn.college` (which resolves 127.0.0.1).
-This is fine for development, but to serve your dojo to the world, you will need to update this (see [Production Setup](#production-setup)).
+默认情况下，dojo 会初始化并监听 `localhost.pwn.college` 这个域名（该域名解析到 127.0.0.1）。
+这对于本地开发来说没有问题，但如果你想把你的 dojo 服务开放给全世界访问，你需要更新这个设置（参考下文的 [生产环境设置](#production-setup)）。
 
-It will take some time to initialize everything and build the challenge docker image.
-You can check on your container (and the progress of the initial build) with:
+初始化所有内容并构建挑战镜像会花费一些时间。
+你可以通过以下命令来检查你的容器状态（以及初始构建的进度）：
 
 ```sh
 docker exec dojo dojo logs
 ```
 
-Once things are setup, you should be able to access the dojo and login with username `admin` and password `admin`.
-You **MUST** change these admin credentials in the admin panel.
+一旦设置完成，你应该就可以访问 dojo 了，使用用户名 `admin` 和密码 `admin` 登录。
+你 **必须** 在管理员后台修改这些默认的管理员凭据。
 
-### Production Setup
+### 生产环境设置 (Production Setup)
 
-Customizing the setup process is done through `-e KEY=value` arguments to the `docker run` command.
-You can stop the already running dojo instance with `docker stop dojo`, and then re-run the `docker run` command with the appropriately modified flags.
+通过向 `docker run` 命令添加 `-e KEY=value` 参数可以自定义设置过程。
+你可以用 `docker stop dojo` 停止已经运行的 dojo 实例，然后用修改后的参数重新运行 `docker run` 命令。
 
-In order to change where the host is serving from, you can modify `DOJO_HOST`, e.g., `-e DOJO_HOST=localhost.pwn.college`.
-In order for this to work correctly, you must correctly point the domain at the server's IP via DNS.
-If you don't have a domain name, you can enter your IP address in the `DOJO_HOST` parameter.
+为了更改服务监听的域名，你可以修改 `DOJO_HOST`，例如：`-e DOJO_HOST=localhost.pwn.college`。
+为了让它正常工作，你必须通过 DNS 将你的域名正确地指向服务器的 IP 地址。
+如果你没有域名，你也可以在 `DOJO_HOST` 参数中直接输入你的 IP 地址。
 
-By default, a minimal challenge image is built.
-If you want more of the features you are used to, you can modify `DOJO_CHALLENGE`, e.g., `-e DOJO_CHALLENGE=challenge-mini`.
-The following options are available:
-- `challenge-nano`: A very minified setup.
-- `challenge-micro`: Adds VSCode.
-- `challenge-mini`: Adds a minified desktop (by default).
-- `challenge-full`: The full (70+ GB) setup.
+默认情况下，构建的是一个最小化的挑战镜像。
+如果你想要更多你习惯使用的功能，可以修改 `DOJO_CHALLENGE`，例如：`-e DOJO_CHALLENGE=challenge-mini`。
+可用的选项如下：
+-   `challenge-nano`: 一个非常精简的配置。
+-   `challenge-micro`: 在 nano 的基础上增加了 VSCode。
+-   `challenge-mini`: 在 micro 的基础上增加了一个精简的桌面环境（默认选项）。
+-   `challenge-full`: 完整的（超过 70 GB）配置。
 
-When you want to deploy it on platforms with different architectures, you can use the `ARCH` parameter in 
-the `config.env` file. The default parameter value is `amd64`, and if deploying on ARM architecture, the parameter value is `arm64`.
+当你想在不同硬件架构的平台上部署时，可以使用 `config.env` 文件中的 `ARCH` 参数。该参数的默认值是 `amd64`，如果部署在 ARM 架构上，参数值应为 `arm64`。
 
-For more arguments, please refer to `data/config.env` created in the dojo directory.
+更多可配置的参数，请参考在 dojo 目录中创建的 `data/config.env` 文件。
 
-For https certificates, you can copy to the pwncollege_certs mounted volume.
+对于 HTTPS 证书，你可以将其复制到名为 `pwncollege_certs` 的挂载卷中。
 ```
 # docker inspect pwncollege_certs
 [
@@ -69,39 +72,45 @@ For https certificates, you can copy to the pwncollege_certs mounted volume.
 -rw-r--r-- 1 root root 7769 May 21 10:16 pwn.cse.hust.edu.cn.crt
 -rw-r--r-- 1 root root 1704 May 21 10:16 pwn.cse.hust.edu.cn.key
 ```
-The https certificate will be configured automatically by executing the following command.
+通过执行以下命令，HTTPS 证书将会被自动配置：
 ```
 dojo compose down
 dojo update
 ```
 
-## Updating
+## 更新 (Updating)
 
-When updating your dojo deployment, there is only one supported method in the `dojo` directory:
+当更新你的 dojo 部署时，在 `dojo` 源码目录下，官方只支持一种方法：
 
 ```sh
-docker kill pwncollege/dojo
-docker rm pwncollege/dojo
+
+docker kill dojo
+docker rm dojo
+# 拉取最新的代码
 git pull
+# 重新构建镜像
 docker build -t pwncollege/dojo dojo
-docker run --privileged -d -v "dojo:/opt/pwn.college:shared" -p 22:22 -p 80:80 -p 443:443 --name dojo pwncollege/dojo
+# 重新运行容器
+sudo docker run --privileged -d -v "$(pwd)/dojo:/opt/pwn.college:shared" -p 22:22 -p 80:80 -p 443:443 --name dojo pwncollege/dojo
 ```
 
-This will cause downtime when the dojo is rebuilding.
 
-Some changes _can_ be applied without a complete restart, however this is not guaranteed.
+这种更新方式会在 dojo 重建期间导致服务中断。
 
-If you really know what you're doing (the changes that you're pulling in are just to `ctfd`), inside the `pwncollege/dojo` container you can do the following:
+有些更改**可以**在不完全重启的情况下应用，但这并不能保证一定成功。
+
+如果你真的清楚你在做什么（比如你拉取的更新只涉及 `ctfd` 部分），你可以在 `pwncollege/dojo` 容器内部执行以下操作：
 
 ```sh
 dojo update
 ```
 
-Note that `dojo update` is not guaranteed to be successful and should only be used if you fully understand each commit/change that you are updating.
+请注意，`dojo update` 并不能保证一定成功，只有在你完全理解你所更新的每一个提交/更改时才应该使用它。
 
-## Customization
+## 自定义 (Customization)
 
-_All_ dojo data will be stored in the `./data` directory.
+**所有** dojo 的数据都将存储在 `./data` 目录中。
+**【译者注】**：此处的 `./data` 指的是**绑定挂载**到容器内的那个宿主机目录下的 `data` 子目录。如果使用的是命名卷，则这些数据会存在于 Docker 管理的卷中。
 
-Once logged in, you can add a dojo by visiting `/dojos/create`. Dojos are contained within git repositories. 
-Refer to [the example dojo](https://github.com/pwncollege/example-dojo) for more information.
+登录后，你可以通过访问 `/dojos/create` 页面来添加一个 dojo。Dojo 是包含在 Git 仓库中的。
+更多信息请参考 [示例 dojo](https://github.com/pwncollege/example-dojo)。

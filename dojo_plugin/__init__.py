@@ -4,8 +4,13 @@ import datetime
 from email.message import EmailMessage
 from email.utils import formatdate
 from urllib.parse import urlparse, urlunparse
-
 from flask import Response, request, redirect
+from prometheus_client import make_wsgi_app
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
+from .prometheus_metrics import (
+    init_metrics, before_request, after_request,
+    CHALLENGE_SOLVES, USER_REGISTRATIONS, LOGIN_ATTEMPTS
+)
 from flask.json import JSONEncoder
 from itsdangerous.exc import BadSignature
 from marshmallow_sqlalchemy import field_for
@@ -44,6 +49,11 @@ class DojoChallenge(BaseChallenge):
     def solve(cls, user, team, challenge, request):
         super().solve(user, team, challenge, request)
         update_awards(user, challenge)
+        # 记录挑战解决指标
+        CHALLENGE_SOLVES.labels(
+            challenge_name=challenge.name,
+            category=challenge.category
+        ).inc()
 
 
 class DojoFlag(BaseFlag):
@@ -139,7 +149,19 @@ def load(app):
     app.register_blueprint(kook)
     app.register_blueprint(api, url_prefix="/pwncollege_api/v1")
     app.register_blueprint(sensai)
-
+    
+    # 初始化 Prometheus 指标
+    init_metrics()
+    
+    # 添加请求监控中间件
+    app.before_request(before_request)
+    app.after_request(after_request)
+    
+    # 添加 Prometheus 指标端点
+    app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {
+        '/metrics': make_wsgi_app()
+    })
+    
     app.jinja_env.filters["markdown"] = render_markdown
 
     register_admin_plugin_menu_bar("Dojos", "/admin/dojos")

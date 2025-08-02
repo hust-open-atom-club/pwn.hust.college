@@ -1,0 +1,74 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+scrape_configs:
+  # Prometheus 自身监控
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter - 系统监控
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+
+
+  # MySQL Exporter - 数据库监控
+  - job_name: 'mysql-exporter'
+    static_configs:
+      - targets: ['mysql-exporter:9104']
+
+  # Redis Exporter - 缓存监控
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  # Nginx Exporter - Web服务器监控
+  - job_name: 'nginx-exporter'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+
+  # CTFd 应用监控
+  - job_name: 'ctfd'
+    static_configs:
+      - targets: ['ctfd:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Docker 容器自动发现 - 监控所有带标签的容器
+  - job_name: 'docker'
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 15s
+        port: 2375
+    relabel_configs:
+      - source_labels: [__meta_docker_container_label_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_docker_container_label_prometheus_io_port]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+        replacement: /metrics
+      - source_labels: [__meta_docker_container_label_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_docker_container_label_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_docker_container_label_(.+) 

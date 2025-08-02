@@ -6,6 +6,7 @@ bleach==6.1.0
 ipython==8.16.1
 flask-shell-ipython==0.5.1
 khl.py==0.3.17
+prometheus_client==0.19.0
 
 # CTFd
 Flask==2.2.5

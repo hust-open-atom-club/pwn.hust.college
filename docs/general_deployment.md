@@ -8,7 +8,7 @@ git clone https://github.com/hust-open-atom-club/dojo.git
 # 使用克隆下来的 Dockerfile 构建一个名为 pwncollege/dojo 的 Docker 镜像
 docker build -t pwncollege/dojo dojo
 # 运行 dojo 容器
-sudo docker run --privileged -d -v "$(pwd)/dojo:/opt/pwn.college:shared" -p 22:22 -p 80:80 -p 443:443 --name dojo pwncollege/dojo
+docker run --privileged -d -v "$(pwd)/dojo:/opt/pwn.college:shared" -p 22:22 -p 80:80 -p 443:443 --name dojo pwncollege/dojo
 ```
 
 这个过程会运行初始设置，包括构建挑战所用的 Docker 镜像。它会根据宿主机的硬件架构来构建镜像。

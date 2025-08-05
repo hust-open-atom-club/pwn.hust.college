@@ -38,6 +38,7 @@ define KOOK_CLIENT_ID
 define KOOK_CLIENT_SECRET
 define KOOK_APP_ID
 define OLLAMA_BASE_URLS
+define OPENAI_API_BASE_URL
 
 mv $DOJO_DIR/data/.config.env $DOJO_DIR/data/config.env
 . $DOJO_DIR/data/config.env

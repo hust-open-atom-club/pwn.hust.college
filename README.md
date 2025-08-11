@@ -1,27 +1,35 @@
-# DOJO
+# pwn.hust.college
 
-**Deploy your pwn.hust.college dojo instance** – a customized fork of the original [pwn.college platform](https://github.com/pwncollege/dojo) – to create tailored cybersecurity training environments.
+**部署你自己的 pwn.hust.college 实例** - 基于原先 [pwn.college platform](https://github.com/pwncollege/dojo) 的定制化分支仓库 - 创建量身定制的网络安全训练环境。
 
 ![Landing Page](docs/static/landing_page.png)
 
-## Introduction
+## 简介
 
-Same with pwn.college, our pwn.hust.college dojo infrastructure is based on [CTFd](https://github.com/CTFd/CTFd). CTFd provides features like user authentication, challenge management, and flag validation, this repository extends its capabilities to create a structured, scalable environment for cybersecurity training. Furthermore, the pwn.hust.college also provides some features related to HUST(Huazhong University of Science and Technology), e.g., HUST SSO login, DeepSeek TA, KOOK integration and cybersecurity courses.
+与 pwn.college 一样，我们的 pwn.hust.college 道场基础设施基于 [CTFd](https://github.com/CTFd/CTFd) 进行构建。CTFd 提供了用户认证、题目管理、flag 验证等功能，本仓库也对其功能进行了扩展，以创建一个结构化、可扩展的网络安全训练环境。此外，pwn.hust.college 还提供了一些与华中科技大学（HUST）相关的功能，例如，华中科技大学单点登录（SSO）、AI 助教、KOOK 集成以及网络安全课程等。
 
-- [📜 History](./docs/history.md)
-- [🏛️ Architecture](./docs/architecture.md)
-- [🚀 Deployment](./docs/general_deployment.md)
-- [🏆 pwn.hust.college Deployment](./docs/pwnhustcollege_deployment.md)
+- [📜 历史](./docs/history.md)
+- [🏛️ 架构](./docs/architecture.md)
+- [🚀 常规部署](./docs/general_deployment.md)
+- [🏆 pwn.hust.college 部署](./docs/pwnhustcollege_deployment.md)
 - [🚩 Challenge](./docs/challenge.md)
-- [💻 Development](./docs/development.md)
+- [💻 开发](./docs/development.md)
 
-Have more questions? Open an ❓[issue](https://github.com/hust-open-atom-club/dojo/issues) or reach out to us on our 💬 [KOOK](https://kook.top/soUkFL).
+还有更多问题吗？提交一个❓[issue](https://github.com/hust-open-atom-club/dojo/issues)，或者通过我们的 💬[KOOK](https://kook.top/soUkFL) 联系我们。
 
-## Contributing
+## 维护人员
 
-We love Pull Requests! 🌟
-Have a small update?
-Send a PR so everyone can benefit.
+- [慕冬亮](https://github.com/mudongliang)
+- [丁鹏宇](https://github.com/wumingzhilian)
+- [胡崟昊](https://github.com/huyinhao)
+- [黄宇浩](https://github.com/CeS-3)
 
-Together, we make this project better for all! 🚀
-Please refer to [CONTRIBUTING.md](/CONTRIBUTING.md) for more details.
+## 贡献
+
+我们欢迎拉取请求（Pull Requests）！🌟
+
+有小的更新吗？
+
+提交一个拉取请求（PR），这样大家都能从中受益。
+
+携手合作，我们能让这个项目为所有人变得更出色！🚀 更多详情请参考 [CONTRIBUTING.md](/CONTRIBUTING.md)。

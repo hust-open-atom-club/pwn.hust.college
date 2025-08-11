@@ -210,7 +210,7 @@ RUN <<EOF
     wget -O /tmp/ms-vscode-cpptools.vsix 'https://github.com/microsoft/vscode-cpptools/releases/download/v1.20.5/cpptools-linux.vsix'    
     code-server --extensions-dir=/opt/code-server/extensions \
     	--install-extension ms-python.python \
-     	--install-extension /tmp/ms-vscode-cpptools.vsix
+     	--install-extension /tmp/ms-vscode-cpptools.vsix \
         --install-extension shd101wyy.markdown-preview-enhanced
     chmod +x /opt/code-server/extensions/ms-vscode.cpptools-*/bin/{cpptools*,libc.so}
     rm -rf /root/.cache/code-server /root/.local/share/code-server /tmp/ms-vscode-cpptools.vsix

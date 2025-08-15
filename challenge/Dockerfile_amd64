@@ -291,7 +291,7 @@ FROM builder-radare2-${INSTALL_RADARE2} AS builder-radare2
 FROM builder AS builder-aflplusplus-no
 FROM builder AS builder-aflplusplus-yes
 RUN <<EOF
-    git clone --depth 1 https://github.com/aflplusplus/aflplusplus -b stable /opt/aflplusplus
+    git clone --depth 1 https://github.com/aflplusplus/aflplusplus -b v4.21c /opt/aflplusplus
     cd /opt/aflplusplus
     make distrib
     make install

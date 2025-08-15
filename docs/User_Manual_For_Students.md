@@ -1,6 +1,6 @@
 # pwn.hust.college 平台用户使用指南
 
-# 一、 概述
+ 一、 概述
 
 pwn.hust.college 平台用于实践网络空间安全，旨在最小化学生和教师的障碍。道馆借鉴了 Capture The Flag（CTF）社区的见解和灵感，该社区开创了使用实践挑战来教授网络空间安全概念的方式。道馆通过提供一个预配置的、功能齐全的学习环境来改进现有平台的可访问性和易用性，该环境可以从任何设备的浏览器进行访问。学生能够在浏览器中编写代码、与 shell 交互、探索复杂的网络配置、调试进程和内核模块等。教师可以轻松地将道馆部署到自己的服务器上，使用单个 docker 运行命令，并通过 git 仓库来管理挑战关卡。
 
@@ -84,9 +84,9 @@ pwn.hust.college 平台用于实践网络空间安全，旨在最小化学生和
 
 总的来说，道馆的设计理念是提供一个全面且易于使用的平台，不仅能提高学生的学习效率，还能让教师更高效地管理和指导学生。通过这些精心设计的功能，使之更加高效且易于接受和使用。
 
-![](static/TI7hbOlhDoNy8Jxgv6pcROaLn5e.png)
+![Screenshot](static/TI7hbOlhDoNy8Jxgv6pcROaLn5e.png)
 
-# 二、学生手册
+二、学生手册
 
 欢迎来到 [pwn.hust.college](https://pwn.cse.hust.edu.cn/) ，一个基于神奇宝贝动画设计的趣味教育平台。为助您获取 flag，成功闯关，下面将介绍道馆的注册、登录、使用细则，以及 vscode 工作空间，图形桌面工作空间，SSH 这三种与挑战关卡互动的方式。
 
@@ -98,13 +98,13 @@ pwn.hust.college 平台用于实践网络空间安全，旨在最小化学生和
 
 我们点击右上角统一身份认证，跳转到[智慧华中大](https://pass.hust.edu.cn/cas/login)。
 
-![](static/ABgvbYoMvoOmwWxZKFic2AOynwf.png)
+![Screenshot](static/ABgvbYoMvoOmwWxZKFic2AOynwf.png)
 
 输入自己的账号密码之后，会自动跳转 `DOJO`，即可成功登录平台。
 
-![](static/WF8tbZs8uoHHHSxYmgxcS8Esnju.png)
+![Screenshot](static/WF8tbZs8uoHHHSxYmgxcS8Esnju.png)
 
-![](static/QtFmb1ZceoOYhmxdRmFczeNenme.png)
+![Screenshot](static/QtFmb1ZceoOYhmxdRmFczeNenme.png)
 
 ### 2.1.2  道馆使用细则
 
@@ -112,17 +112,17 @@ pwn.hust.college 平台用于实践网络空间安全，旨在最小化学生和
 
 点击**入门篇**，可以看到道馆简介，道馆奖项，道馆状态，道馆模块以及道馆排名，点击道馆模块。
 
-![](static/T4mqbgLRnoY6VHxWjfdck3wSnQc.png)
+![Screenshot](static/T4mqbgLRnoY6VHxWjfdck3wSnQc.png)
 
 进入道馆模块后可以看到篇章内容简介，课程讲解与资料学习，和挑战关卡。完成每个挑战关卡后都可以获得相应的 flag，全部完成后即可获得徽章。
 
 开始挑战，点击名为工作空间的第一关：
 
-![](static/Ba3Ybj3vSoxjEmx3UG8czk3Tnvc.png)
+![Screenshot](static/Ba3Ybj3vSoxjEmx3UG8czk3Tnvc.png)
 
 点击 Start 按钮，当出现下方蓝色提示时意味着当前挑战关卡已经启动。
 
-![](static/BPZZb2ybgod2DyxQkAycjuZAnvf.png)
+![Screenshot](static/BPZZb2ybgod2DyxQkAycjuZAnvf.png)
 
 ## 2.2 VSCode 工作空间
 
@@ -130,39 +130,39 @@ pwn.hust.college 平台用于实践网络空间安全，旨在最小化学生和
 
 根据简介第一关将教你如何让使用 Visual Studio Code 工作空间，点击上方的工作空间或者下方蓝色提示中的 Vscode Workspace 均可进入。
 
-![](static/RfgAbpzWoo5pGDx2NXkc5yiLnpc.png)
+![Screenshot](static/RfgAbpzWoo5pGDx2NXkc5yiLnpc.png)
 
 进入工作空间后，根据提示要运行路径为/challenge/solve 的挑战程序。
 
 如果当前处在/home 目录中，请切换文件夹至/challenge 目录中。
 
-![](static/HwM8bwP0bo1MCdx1owGcIirfnSf.png)
+![Screenshot](static/HwM8bwP0bo1MCdx1owGcIirfnSf.png)
 
 填写/challenge，点击 ok 按钮切换。
 
-![](static/PrdMbU5NcoViozx7TJucI2vEn9f.png)
+![Screenshot](static/PrdMbU5NcoViozx7TJucI2vEn9f.png)
 
 切换到/challenge 目录下可以看到 DESCRIPTION 里面的提示以及我们需要运行的程序 solve，右键 solve 打开终端。
 
-![](static/TwC8b8fV2o0vQIxmqMTcb0Tbnic.png)
+![Screenshot](static/TwC8b8fV2o0vQIxmqMTcb0Tbnic.png)
 
 输入命令。/solve 运行可执行程序，可以获取 flag，复制 flag。
 
-![](static/XGnxbIB7JoRBwmxHjmLcA1VsnsA.png)
+![Screenshot](static/XGnxbIB7JoRBwmxHjmLcA1VsnsA.png)
 
 回到道馆，将 flag 粘贴至浅绿色框内，然后点击右侧 submit 提交，如果出现 correct 提示并且旗帜变成绿色说明 flag 正确，闯关成功。（注意：不同同学、每次挑战的 flag 都不一样）
 
-![](static/HNvDbIDNJoByrAx86mOcQ8vgn5c.png)
+![Screenshot](static/HNvDbIDNJoByrAx86mOcQ8vgn5c.png)
 
 ### 2.2.2 读取 flag
 
 运行第四关，打开工作空间，根据提示/flag 文件需要 root 用户才能访问。
 
-![](static/OcQXb1vLdonYH9xXdCrc5GxGnhe.png)
+![Screenshot](static/OcQXb1vLdonYH9xXdCrc5GxGnhe.png)
 
 先运行可执行文件让所有人都能读取 flag，使用命令 cat /flag 读取 flag。
 
-![](static/EhhgbbIBNozo8WxILaLcVp32nEd.png)
+![Screenshot](static/EhhgbbIBNozo8WxILaLcVp32nEd.png)
 
 回到道馆，将 flag 粘贴至浅绿色框内，然后点击右侧 submit 提交，如果出现 correct 提示并且旗帜变成绿色说明 flag 正确，闯关成功。
 
@@ -170,15 +170,15 @@ pwn.hust.college 平台用于实践网络空间安全，旨在最小化学生和
 
 第五关是使用练习模式获取 sudo 权限读取密钥，然后再在正常模式下运行可执行文件输入密钥，获取 flag。点击 practice 练习模式按钮开启第四关，进入 VSCode 工作空间。
 
-![](static/OZhYbdgIeo5OdPxaU3hcuRMWnJd.png)
+![Screenshot](static/OZhYbdgIeo5OdPxaU3hcuRMWnJd.png)
 
 用命令 sudo cat 。/secret 来读取密钥
 
-![](static/M3Npb8Gexo5UhZxcQtYcqFQKn2c.png)
+![Screenshot](static/M3Npb8Gexo5UhZxcQtYcqFQKn2c.png)
 
 回到道馆，点击 start 正常模式，进入工作空间，运行可执行文件，输入密钥，获取 flag。
 
-![](static/SXBbbCkRDo5MSaxTI8ScgqQVn0e.png)
+![Screenshot](static/SXBbbCkRDo5MSaxTI8ScgqQVn0e.png)
 
 回到道馆，将 flag 粘贴至浅绿色框内，然后点击右侧 submit 提交，如果出现 correct 提示并且旗帜变成绿色说明 flag 正确，闯关成功。
 
@@ -188,9 +188,9 @@ pwn.hust.college 平台用于实践网络空间安全，旨在最小化学生和
 
 可以通过打开文件夹，选择 home/hacker 到家目录，家目录在挑战关卡中保持不变，可在其中新建文件、文件夹，具体操作可以通过第六关第七关验证。
 
-![](static/HuvsbDPzko0tdbxn7jMcJVfLnhh.png)
+![Screenshot](static/HuvsbDPzko0tdbxn7jMcJVfLnhh.png)
 
-![](static/EciVbgytqo1beqxB8vecmUeunih.png)
+![Screenshot](static/EciVbgytqo1beqxB8vecmUeunih.png)
 
 ## 2.3 图形桌面工作空间
 
@@ -198,19 +198,19 @@ pwn.hust.college 平台用于实践网络空间安全，旨在最小化学生和
 
 点击 start 按钮开启第二关，点击上方桌面按钮或蓝色提示上的 GUIDesktop 均可进入桌面环境。
 
-![](static/XJ7EbRzhrouTzMx5FeQcwfFNnKf.png)
+![Screenshot](static/XJ7EbRzhrouTzMx5FeQcwfFNnKf.png)
 
 进入桌面环境，可以看到 challenge 目录下的 DESCRIPTION 任务描述以及可执行程序 solve，在 challenge 目录下右键打开终端。
 
-![](static/KBU7brAEroeQ3YxHyQDc38pLnPe.png)
+![Screenshot](static/KBU7brAEroeQ3YxHyQDc38pLnPe.png)
 
 输入命令。/solve 运行可执行程序可以得到 flag 以及将 flag 从桌面平台粘贴到宿主机系统的方法。
 
-![](static/J5pgb8WtpoXgolxtN4ZcsQpOntg.png)
+![Screenshot](static/J5pgb8WtpoXgolxtN4ZcsQpOntg.png)
 
 根据方法打开屏幕左侧的剪切板，勾选 flag 内容，发现剪切板中显示 flag 内容，在剪切板里面复制 flag 内容。
 
-![](static/UzUAbt1QzoNL5axiAYCcAXvCn0b.png)
+![Screenshot](static/UzUAbt1QzoNL5axiAYCcAXvCn0b.png)
 
 回到道馆，将 flag 粘贴至浅绿色框内，然后点击右侧 submit 提交，如果出现 correct 提示并且旗帜变成绿色说明 flag 正确，闯关成功。
 
@@ -218,15 +218,15 @@ pwn.hust.college 平台用于实践网络空间安全，旨在最小化学生和
 
 启动第三关桌面拷贝，复制令牌，在/challenge 目录中打开终端，输入指令。/solve 运行可执行程序，获得能从宿主机拷贝到桌面环境中的方法。
 
-![](static/HvRjb2I6Ho9sMkxd4UHcWUpUnfh.png)
+![Screenshot](static/HvRjb2I6Ho9sMkxd4UHcWUpUnfh.png)
 
 将令牌粘贴至剪贴簿并且复制。
 
-![](static/CHOhbqrxNozk90xswSrcmkMBnNn.png)
+![Screenshot](static/CHOhbqrxNozk90xswSrcmkMBnNn.png)
 
 在终端中输入令牌获取 flag，复制 flag 至宿主机参考 2.3.1 的内容。
 
-![](static/Zn7HbY55DofT05x4maTci6Ycn7d.png)
+![Screenshot](static/Zn7HbY55DofT05x4maTci6Ycn7d.png)
 
 回到道馆，将 flag 粘贴至浅绿色框内，然后点击右侧 Submit 按钮提交，如果出现 correct 提示并且旗帜变成绿色说明 flag 正确，闯关成功。
 
@@ -238,15 +238,15 @@ pwn.hust.college 平台用于实践网络空间安全，旨在最小化学生和
 
 打开终端，通过 cd 进入 `.ssh` 文件夹，输入 `ssh-keygen -f key`（在 win11 终端中，使用空字符串作为参数可能会引起语法错误或不被接受，-N 去掉后输入密码时直接回车表示无密码），生成 key 和 key.pub 公私钥对，通过 cat key.pub 将公钥内容复制出来。
 
-![](static/pic1.png)
+![Screenshot](static/pic1.png)
 
 回到道馆点击右上角设置，点击左侧 SSH 公钥。
 
-![](static/FDTZbMxHTo9ukJxI17AcbXtUnjd.png)
+![Screenshot](static/FDTZbMxHTo9ukJxI17AcbXtUnjd.png)
 
 将复制的公钥填入并且点击 update，出现绿色提示说明公钥成功上传。
 
-![](static/ZoEPbAYvaowUPkxytfvcqTS5n4g.png)
+![Screenshot](static/ZoEPbAYvaowUPkxytfvcqTS5n4g.png)
 
 回到 Win11 终端，
 
@@ -256,7 +256,7 @@ ssh -i ～/.ssh/key -p 22 hacker@pwn.cse.hust.edu.cn
 
 即可连接到挑战关卡容器，切换到 challenge 目录，然后运行挑战程序，获取 flag。
 
-![](static/pic2.png)
+![Screenshot](static/pic2.png)
 
 最后回到道馆，将 flag 粘贴至浅绿色框内，然后点击右侧 submit 提交，如果出现 correct 提示并且旗帜变成绿色说明 flag 正确，闯关成功。
 
@@ -264,8 +264,8 @@ ssh -i ～/.ssh/key -p 22 hacker@pwn.cse.hust.edu.cn
 
 同学们可以将 kook 个人账号连接到平台中，这样可以通过 pwn.hust.college 平台在 KOOK 频道中做信息广播。
 
-## 2.6 帮助
+ 2.6 帮助
 开启挑战后点击上方的帮助，可开启一个大语言模型交互界面，在输入框中输入与开启的挑战相关的信息并发送，可以获取到相关的帮助信息。
 
-![](static/076adcafbcf8ffb309778b89175001f0.png)
-![](static/3cfa3d5a7557641a13e71152458d974e.png)
+![Screenshot](static/076adcafbcf8ffb309778b89175001f0.png)
+![Screenshot](static/3cfa3d5a7557641a13e71152458d974e.png)

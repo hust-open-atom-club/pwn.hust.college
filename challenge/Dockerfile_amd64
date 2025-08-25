@@ -11,7 +11,7 @@ ARG INSTALL_AFL=${DEFAULT_INSTALL_SELECTION}
 ARG INSTALL_RAPPEL=${DEFAULT_INSTALL_SELECTION}
 ARG INSTALL_RP=${DEFAULT_INSTALL_SELECTION}
 ARG INSTALL_GECKODRIVER=${DEFAULT_INSTALL_SELECTION}
-# ARG INSTALL_BURPSUITE=${DEFAULT_INSTALL_SELECTION}
+ARG INSTALL_BURPSUITE=${DEFAULT_INSTALL_SELECTION}
 ARG INSTALL_BUSYBOX=${DEFAULT_INSTALL_SELECTION}
 ARG INSTALL_GLOW=${DEFAULT_INSTALL_SELECTION}
 ARG INSTALL_DESKTOP=${DEFAULT_INSTALL_SELECTION}
@@ -291,7 +291,7 @@ FROM builder-radare2-${INSTALL_RADARE2} AS builder-radare2
 FROM builder AS builder-aflplusplus-no
 FROM builder AS builder-aflplusplus-yes
 RUN <<EOF
-    git clone --depth 1 https://github.com/aflplusplus/aflplusplus -b v4.21c  /opt/aflplusplus
+    git clone --depth 1 https://github.com/aflplusplus/aflplusplus -b v4.21c /opt/aflplusplus
     cd /opt/aflplusplus
     make distrib
     make install
@@ -323,19 +323,19 @@ RUN <<EOF
 EOF
 FROM builder-geckodriver-${INSTALL_GECKODRIVER} AS builder-geckodriver
 
-# FROM builder AS builder-burpsuite-no
-# FROM builder AS builder-burpsuite-yes
-# RUN <<EOF
-#     wget -q -O /tmp/burpsuite.sh https://portswigger.net/burp/releases/download?product=community\&version=2023.11.1.4\&type=Linux
-#     sh /tmp/burpsuite.sh -q
-#     rm /tmp/burpsuite.sh
-# EOF
-# FROM builder-burpsuite-${INSTALL_BURPSUITE} AS builder-burpsuite
+FROM builder AS builder-burpsuite-no
+FROM builder AS builder-burpsuite-yes
+RUN <<EOF
+    wget -q -O /tmp/burpsuite.sh https://portswigger.net/burp/releases/download?product=community\&version=2025.8.1\&type=Linux
+    sh /tmp/burpsuite.sh -q
+    rm /tmp/burpsuite.sh
+EOF
+FROM builder-burpsuite-${INSTALL_BURPSUITE} AS builder-burpsuite
 
 FROM builder AS builder-busybox-no
 FROM builder AS builder-busybox-yes
 RUN <<EOF
-    VERSION="busybox-1.33.2"
+    VERSION="busybox-1.37.0"
     mkdir /opt/busybox && cd "$_"
     wget -q -O - "https://busybox.net/downloads/${VERSION}.tar.bz2" | tar xvj
     pushd "${VERSION}"
@@ -457,12 +457,12 @@ FROM essentials AS builder-desktop-binja-free-no
 FROM essentials AS builder-desktop-binja-free-yes
 
 COPY desktop/binary-ninja.desktop /usr/share/applications/
-# RUN <<EOF
-#     wget -O /tmp/BinaryNinja-free.zip https://cdn.binary.ninja/installers/BinaryNinja-free.zip
-#     unzip -d /opt /tmp/BinaryNinja-free.zip
-#     wget -O /opt/binaryninja/icon.png  https://binary.ninja/icons/android-chrome-192x192.png
-#     rm /tmp/BinaryNinja-free.zip
-# EOF
+RUN <<EOF
+    wget -O /tmp/BinaryNinja-free.zip https://cdn.binary.ninja/installers/binaryninja_free_linux.zip
+    unzip -d /opt /tmp/BinaryNinja-free.zip
+    wget -O /opt/binaryninja/icon.png  https://binary.ninja/icons/android-chrome-192x192.png
+    rm /tmp/BinaryNinja-free.zip
+EOF
 
 FROM builder-desktop-binja-free-${INSTALL_BINJA_FREE} AS builder-desktop-binja-free
 
@@ -635,7 +635,7 @@ COPY --link --from=builder-aflplusplus / /
 COPY --link --from=builder-rappel / /
 COPY --link --from=builder-rp / /
 COPY --link --from=builder-geckodriver / /
-# COPY --link --from=builder-burpsuite / /
+COPY --link --from=builder-burpsuite / /
 COPY --link --from=builder-busybox / /
 COPY --link --from=builder-glow / /
 COPY --link --from=builder-virtiofsd /opt/virtiofsd /opt/virtiofsd
@@ -666,7 +666,7 @@ COPY --link --from=builder-aflplusplus-yes / /
 COPY --link --from=builder-rappel-yes / /
 COPY --link --from=builder-rp-yes / /
 COPY --link --from=builder-geckodriver-yes / /
-# COPY --link --from=builder-burpsuite-yes / /
+COPY --link --from=builder-burpsuite-yes / /
 COPY --link --from=builder-busybox-yes / /
 COPY --link --from=builder-glow-yes / /
 COPY --link --from=builder-virtiofsd-yes /opt/virtiofsd /opt/virtiofsd

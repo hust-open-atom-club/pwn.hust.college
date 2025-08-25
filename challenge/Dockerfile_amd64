@@ -83,7 +83,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         clang
         cmake
         cpio
-        openjdk-17-jdk
+        openjdk-21-jdk
         flex
         dwarves
         g++-multilib

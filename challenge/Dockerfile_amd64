@@ -199,8 +199,8 @@ FROM builder AS builder-gdb-yes
 
 RUN <<EOF
     mkdir /opt/gdb
-    wget -O - https://ftp.gnu.org/gnu/gdb/gdb-11.1.tar.gz | tar xzC /opt/gdb
-    cd /opt/gdb/gdb-11.1
+    wget -O - https://sourceware.org/pub/gdb/releases/gdb-16.3.tar.gz | tar xzC /opt/gdb
+    cd /opt/gdb/gdb-16.3
     mkdir build
     cd build
     ../configure --prefix=/usr --with-python=/usr/bin/python3

@@ -232,11 +232,13 @@ FROM essentials AS builder-code-server
 RUN <<EOF
     curl -fsSL https://gitee.com/mirrors/code-server/raw/main/install.sh | /bin/sh /dev/stdin
     mkdir -p /opt/code-server/extensions
+    wget -O /tmp/ms-vscode-cpptools.vsix 'https://github.com/microsoft/vscode-cpptools/releases/download/v1.20.5/cpptools-linux.vsix'    
     code-server --extensions-dir=/opt/code-server/extensions \
     	--install-extension ms-python.python \
-     	--install-extension ms-vscode-cpptools \
+     	--install-extension /tmp/ms-vscode-cpptools.vsix \
         --install-extension shd101wyy.markdown-preview-enhanced
-    rm -rf /root/.cache/code-server /root/.local/share/code-server
+    chmod +x /opt/code-server/extensions/ms-vscode.cpptools-*/bin/{cpptools*,libc.so}
+    rm -rf /root/.cache/code-server /root/.local/share/code-server /tmp/ms-vscode-cpptools.vsix
 EOF
 
 WORKDIR /usr/lib/code-server/lib/vscode/node_modules/@vscode/ripgrep/bin
@@ -427,7 +429,7 @@ COPY desktop/Ghidra.desktop /usr/share/applications/
 RUN <<EOF
     wget -q -O /tmp/ghidra.zip https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.4.1_build/ghidra_11.4.1_PUBLIC_20250731.zip
     unzip /tmp/ghidra.zip -d /tmp
-    mv /tmp/ghidra_10.3_PUBLIC /opt/ghidra
+    mv /tmp/ghidra_11.4.1_PUBLIC /opt/ghidra
     rm /tmp/ghidra.zip
 EOF
 

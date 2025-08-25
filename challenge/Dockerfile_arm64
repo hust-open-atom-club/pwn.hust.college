@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG UBUNTU_VERSION=20.04
+ARG UBUNTU_VERSION=22.04
 ARG DOJO_CHALLENGE=challenge-mini
 ARG DEFAULT_INSTALL_SELECTION=yes
 ARG NO_INSTALL_SECTION=no
@@ -12,7 +12,7 @@ ARG INSTALL_AFL=${DEFAULT_INSTALL_SELECTION}
 ARG INSTALL_RAPPEL=${DEFAULT_INSTALL_SELECTION}
 ARG INSTALL_RP=${DEFAULT_INSTALL_SELECTION}
 ARG INSTALL_GECKODRIVER=${DEFAULT_INSTALL_SELECTION}
-#ARG INSTALL_BURPSUITE=${DEFAULT_INSTALL_SELECTION}
+ARG INSTALL_BURPSUITE=${DEFAULT_INSTALL_SELECTION}
 ARG INSTALL_BUSYBOX=${DEFAULT_INSTALL_SELECTION}
 ARG INSTALL_GLOW=${DEFAULT_INSTALL_SELECTION}
 ARG INSTALL_DESKTOP=${DEFAULT_INSTALL_SELECTION}
@@ -40,7 +40,6 @@ RUN <<EOF
     apt-get clean && rm -rf /var/lib/apt/lists/*
 EOF
 
-RUN sed -i.bak 's|https\?://archive.ubuntu.com|http://mirrors.hust.edu.cn|g' /etc/apt/sources.list
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && xargs apt-get install --no-install-recommends -yqq <<EOF && \
@@ -60,7 +59,6 @@ RUN rm -f /usr/lib/python3.*/EXTERNALLY-MANAGED
 
 FROM essentials AS builder-essentials
 
-RUN sed -i.bak 's|https\?://archive.ubuntu.com|http://mirrors.hust.edu.cn|g' /etc/apt/sources.list
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && xargs apt-get install --no-install-recommends -yqq <<EOF && \
@@ -72,7 +70,6 @@ EOF
 
 FROM builder-essentials AS builder
 
-RUN sed -i.bak 's|https\?://archive.ubuntu.com|http://mirrors.hust.edu.cn|g' /etc/apt/sources.list
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && xargs apt-get install --no-install-recommends -yqq <<EOF && \
@@ -85,7 +82,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         cpio
         openjdk-17-jdk
         flex
-	dwarves
+	    dwarves
         git
         libedit-dev
         libelf-dev
@@ -118,7 +115,7 @@ FROM builder AS builder-kernel-yes
 
 RUN <<EOF
     mkdir /opt/linux
-    wget -O - https://mirrors.hust.edu.cn/kernel.org/linux/kernel/v6.x/linux-6.6.32.tar.gz | tar xzC /opt/linux
+    wget -O - https://www.kernel.org/pub/linux/kernel/v6.x/linux-6.6.32.tar.gz | tar xzC /opt/linux
     cd /opt/linux/linux-6.6.32
     make defconfig
 EOF
@@ -184,7 +181,7 @@ RUN <<EOF
 EOF
 
 RUN <<EOF
-    git clone  --branch 2024.02.14  --depth 1 --recurse-submodules https://github.com/pwndbg/pwndbg /opt/pwndbg
+    git clone --branch 2024.02.14  --depth 1 --recurse-submodules https://github.com/pwndbg/pwndbg /opt/pwndbg
     cd /opt/pwndbg
     ./setup.sh
 
@@ -348,11 +345,9 @@ FROM builder-virtiofsd-${INSTALL_VIRTIOFSD} AS builder-virtiofsd
 FROM essentials AS builder-desktop-no
 FROM essentials AS builder-desktop-yes
 
-ARG UBUNTU_VERSION=20.04
-RUN sed -i.bak 's|https\?://archive.ubuntu.com|http://mirrors.hust.edu.cn|g' /etc/apt/sources.list
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    [ "${UBUNTU_VERSION}" == "20.04" ] && TGR=common || TGR=tools; \
+    [ "${UBUNTU_VERSION}" == "22.04" ] && TGR=common || TGR=tools; \
     apt-get update && xargs apt-get install -yqq <<EOF && \
     apt-get -y remove --purge at-spi2-core tumbler gvfs-* && \
     apt-get -y autoremove && \

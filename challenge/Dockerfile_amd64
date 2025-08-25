@@ -413,7 +413,7 @@ FROM essentials AS builder-desktop-angr-management-yes
 COPY desktop/angr-management.desktop /usr/share/applications/
 ARG UBUNTU_VERSION=22.04
 RUN <<EOF
-    wget -q -O - https://github.com/angr/angr-management/releases/download/v9.2.168/angr-management-ubuntu-${UBUNTU_VERSION}.tar.gz | tar xvz -C /opt
+    wget -q -O - https://github.com/angr/angr-management/releases/download/v9.2.168/angr-management-v9.2.168-ubuntu-${UBUNTU_VERSION}-x86_64.tar.gz | tar xvz -C /opt
 EOF
 
 FROM builder-desktop-angr-management-${INSTALL_ANGR_MANAGEMENT} AS builder-desktop-angr-management

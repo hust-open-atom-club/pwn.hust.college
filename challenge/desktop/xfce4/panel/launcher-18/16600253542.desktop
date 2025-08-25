@@ -10,4 +10,4 @@ Exec=wireshark %f
 Terminal=false
 MimeType=application/vnd.tcpdump.pcap;application/x-pcapng;application/x-snoop;application/x-iptrace;application/x-lanalyzer;application/x-nettl;application/x-radcom;application/x-etherpeek;application/x-visualnetworks;application/x-netinstobserver;application/x-5view;application/x-tektronix-rf5;application/x-micropross-mplog;application/x-apple-packetlogger;application/x-endace-erf;application/ipfix;application/x-ixia-vwr;
 Categories=Network;Monitor;Qt;
-X-XFCE-Source=file:///usr/share/applications/wireshark.desktop
+X-XFCE-Source=file:///usr/share/applications/org.wireshark.Wireshark.desktop

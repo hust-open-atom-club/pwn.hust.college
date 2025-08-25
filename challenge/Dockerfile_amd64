@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG UBUNTU_VERSION=20.04
+ARG UBUNTU_VERSION=22.04
 ARG DOJO_CHALLENGE=challenge-mini
 ARG DEFAULT_INSTALL_SELECTION=yes
 ARG INSTALL_KERNEL=${DEFAULT_INSTALL_SELECTION}
@@ -118,6 +118,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         squashfs-tools
         upx-ucl
 EOF
+
+ENV RUSTUP_HOME=/root/.rustup
+ENV CARGO_HOME=/root/.cargo
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.81.0
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN . /root/.cargo/env && rustc --version && cargo --version
 
 ################################################################################
 
@@ -377,7 +383,7 @@ FROM builder-virtiofsd-${INSTALL_VIRTIOFSD} AS builder-virtiofsd
 FROM essentials AS builder-desktop-no
 FROM essentials AS builder-desktop-yes
 
-ARG UBUNTU_VERSION=20.04
+ARG UBUNTU_VERSION=22.04
 RUN sed -i.bak 's|https\?://archive.ubuntu.com|http://mirrors.hust.edu.cn|g' /etc/apt/sources.list
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -412,7 +418,7 @@ FROM essentials AS builder-desktop-angr-management-no
 FROM essentials AS builder-desktop-angr-management-yes
 
 COPY desktop/angr-management.desktop /usr/share/applications/
-ARG UBUNTU_VERSION=20.04
+ARG UBUNTU_VERSION=22.04
 RUN <<EOF
     wget -q -O - https://github.com/angr/angr-management/releases/download/v9.2.139/angr-management-ubuntu-${UBUNTU_VERSION}.tar.gz | tar xvz -C /opt
 EOF
@@ -548,8 +554,8 @@ RUN xargs pip install --force-reinstall <<EOF
     angr
     asteval
     flask
-    git+https://github.com/Gallopsled/pwntools#egg=pwntools
-    git+https://github.com/secdev/scapy#egg=scapy
+    pwntools
+    scapy
     jupyter
     psutil
     pycryptodome

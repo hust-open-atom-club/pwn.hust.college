@@ -42,7 +42,6 @@ RUN <<EOF
     apt-get clean && rm -rf /var/lib/apt/lists/*
 EOF
 
-RUN sed -i.bak 's|https\?://archive.ubuntu.com|http://mirrors.hust.edu.cn|g' /etc/apt/sources.list
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && xargs apt-get install --no-install-recommends -yqq <<EOF && \
@@ -62,7 +61,6 @@ RUN rm -f /usr/lib/python3.*/EXTERNALLY-MANAGED
 
 FROM essentials AS builder-essentials
 
-RUN sed -i.bak 's|https\?://archive.ubuntu.com|http://mirrors.hust.edu.cn|g' /etc/apt/sources.list
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && xargs apt-get install --no-install-recommends -yqq <<EOF && \
@@ -74,7 +72,6 @@ EOF
 
 FROM builder-essentials AS builder
 
-RUN sed -i.bak 's|https\?://archive.ubuntu.com|http://mirrors.hust.edu.cn|g' /etc/apt/sources.list
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && xargs apt-get install --no-install-recommends -yqq <<EOF && \
@@ -146,7 +143,7 @@ FROM builder AS builder-kernel-yes
 
 RUN <<EOF
     mkdir /opt/linux
-    wget -O - https://mirrors.hust.edu.cn/kernel.org/linux/kernel/v6.x/linux-6.6.32.tar.gz | tar xzC /opt/linux
+    wget -O - https://www.kernel.org/pub/linux/kernel/v6.x/linux-6.6.32.tar.gz | tar xzC /opt/linux
     cd /opt/linux/linux-6.6.32
     make defconfig
 EOF
@@ -235,13 +232,11 @@ FROM essentials AS builder-code-server
 RUN <<EOF
     curl -fsSL https://gitee.com/mirrors/code-server/raw/main/install.sh | /bin/sh /dev/stdin
     mkdir -p /opt/code-server/extensions
-    wget -O /tmp/ms-vscode-cpptools.vsix 'https://github.com/microsoft/vscode-cpptools/releases/download/v1.20.5/cpptools-linux.vsix'    
     code-server --extensions-dir=/opt/code-server/extensions \
     	--install-extension ms-python.python \
-     	--install-extension /tmp/ms-vscode-cpptools.vsix \
+     	--install-extension ms-vscode-cpptools \
         --install-extension shd101wyy.markdown-preview-enhanced
-    chmod +x /opt/code-server/extensions/ms-vscode.cpptools-*/bin/{cpptools*,libc.so}
-    rm -rf /root/.cache/code-server /root/.local/share/code-server /tmp/ms-vscode-cpptools.vsix
+    rm -rf /root/.cache/code-server /root/.local/share/code-server
 EOF
 
 WORKDIR /usr/lib/code-server/lib/vscode/node_modules/@vscode/ripgrep/bin
@@ -325,7 +320,7 @@ FROM builder-rp-${INSTALL_RP} AS builder-rp
 FROM builder AS builder-geckodriver-no
 FROM builder AS builder-geckodriver-yes
 RUN <<EOF
-    wget -q -O - https://github.com/mozilla/geckodriver/releases/download/v0.32.0/geckodriver-v0.32.0-linux64.tar.gz | tar xvz -C /usr/local/bin
+    wget -q -O - https://github.com/mozilla/geckodriver/releases/download/v0.36.0/geckodriver-v0.36.0-linux64.tar.gz | tar xvz -C /usr/local/bin
 EOF
 FROM builder-geckodriver-${INSTALL_GECKODRIVER} AS builder-geckodriver
 
@@ -356,7 +351,7 @@ FROM builder-busybox-${INSTALL_BUSYBOX} AS builder-busybox
 FROM builder AS builder-glow-no
 FROM builder AS builder-glow-yes
 RUN <<EOF
-    VERSION="1.5.1"
+    VERSION="2.1.1"
     DEB_NAME="glow_${VERSION}_amd64.deb"
     pushd /tmp
     wget -q "https://github.com/charmbracelet/glow/releases/download/v${VERSION}/${DEB_NAME}"
@@ -383,18 +378,16 @@ FROM builder-virtiofsd-${INSTALL_VIRTIOFSD} AS builder-virtiofsd
 FROM essentials AS builder-desktop-no
 FROM essentials AS builder-desktop-yes
 
-ARG UBUNTU_VERSION=22.04
-RUN sed -i.bak 's|https\?://archive.ubuntu.com|http://mirrors.hust.edu.cn|g' /etc/apt/sources.list
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    [ "${UBUNTU_VERSION}" == "20.04" ] && TGR=common || TGR=tools; \
     apt-get update && xargs apt-get install -yqq <<EOF && \
     apt-get -y remove --purge at-spi2-core tumbler gvfs-* && \
     apt-get -y autoremove && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
         novnc
         tigervnc-standalone-server
-        tigervnc-$TGR
+        tigervnc-common
+        tigervnc-tools
         websockify
         xterm
         dbus-x11
@@ -420,7 +413,7 @@ FROM essentials AS builder-desktop-angr-management-yes
 COPY desktop/angr-management.desktop /usr/share/applications/
 ARG UBUNTU_VERSION=22.04
 RUN <<EOF
-    wget -q -O - https://github.com/angr/angr-management/releases/download/v9.2.139/angr-management-ubuntu-${UBUNTU_VERSION}.tar.gz | tar xvz -C /opt
+    wget -q -O - https://github.com/angr/angr-management/releases/download/v9.2.168/angr-management-ubuntu-${UBUNTU_VERSION}.tar.gz | tar xvz -C /opt
 EOF
 
 FROM builder-desktop-angr-management-${INSTALL_ANGR_MANAGEMENT} AS builder-desktop-angr-management
@@ -432,7 +425,7 @@ FROM essentials AS builder-desktop-ghidra-yes
 
 COPY desktop/Ghidra.desktop /usr/share/applications/
 RUN <<EOF
-    wget -q -O /tmp/ghidra.zip https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_10.3_build/ghidra_10.3_PUBLIC_20230510.zip
+    wget -q -O /tmp/ghidra.zip https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.4.1_build/ghidra_11.4.1_PUBLIC_20250731.zip
     unzip /tmp/ghidra.zip -d /tmp
     mv /tmp/ghidra_10.3_PUBLIC /opt/ghidra
     rm /tmp/ghidra.zip
@@ -477,7 +470,6 @@ FROM builder-desktop-binja-free-${INSTALL_BINJA_FREE} AS builder-desktop-binja-f
 FROM essentials AS builder-tools-apt-no
 FROM essentials AS builder-tools-apt-yes
 
-RUN sed -i.bak 's|https\?://archive.ubuntu.com|http://mirrors.hust.edu.cn|g' /etc/apt/sources.list
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && xargs apt-get install --no-install-recommends -yqq <<EOF && \

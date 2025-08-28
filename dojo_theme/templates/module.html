@@ -17,8 +17,9 @@
   </div>
 </div>
 <div class="container">
-
+  
   {% if module.description %}
+  <h2 class="row">模块内容</h2>
   <p class="row">{{ module.description | markdown }}</p>
   <br>
   {% endif %}

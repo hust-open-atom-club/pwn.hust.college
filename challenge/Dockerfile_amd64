@@ -97,6 +97,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         libglib2.0-dev
         libgmp-dev
         libini-config-dev
+        libmpfr-dev
         libncurses5:i386
         libpcap-dev
         libpixman-1-dev

@@ -18,7 +18,7 @@
 - [🚩 Challenge](./docs/challenge.md)
 - [💻 开发](./docs/development.md)
 
-还有更多问题吗？提交一个❓[issue](https://github.com/hust-open-atom-club/dojo/issues)，或者通过我们的 💬[KOOK](https://kook.top/soUkFL) 联系我们。
+还有更多问题吗？提交一个❓[issue](https://github.com/hust-open-atom-club/pwn.hust.college/issues)，或者通过我们的 💬[KOOK](https://kook.top/soUkFL) 联系我们。
 
 ## 维护人员
 

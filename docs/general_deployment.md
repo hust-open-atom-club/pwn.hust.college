@@ -4,7 +4,7 @@
 # 设置 Docker CE 的下载镜像源为华中科技大学镜像站，并执行官方安装脚本
 export DOWNLOAD_URL="https://mirrors.hust.edu.cn/docker-ce" && curl -fsSL https://get.docker.com | /bin/sh
 # 从 GitHub 克隆 dojo 的源代码
-git clone https://github.com/hust-open-atom-club/dojo.git
+git clone https://github.com/hust-open-atom-club/pwn.hust.college.git
 # 使用克隆下来的 Dockerfile 构建一个名为 pwncollege/dojo 的 Docker 镜像
 docker build -t pwncollege/dojo dojo
 # 运行 dojo 容器

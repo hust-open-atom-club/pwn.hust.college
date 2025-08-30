@@ -2,7 +2,7 @@
 
 `config.env` 是 **pwn.hust.college 平台的核心配置文件**，位于路径：
 
-```
+```sh
 data/config.env
 ```
 
@@ -35,7 +35,7 @@ KOOK_APP_ID=""
 OPENAI_API_BASE_URL=""
 ```
 
-# pwn.hust.college 平台 KOOK 配置说明
+## pwn.hust.college 平台 KOOK 配置说明
 
 平台在 `config.env` 文件中保存了核心运行配置，其中包括与 **KOOK 机器人服务** 对接的参数。这部分内容将详细说明 KOOK 相关字段的含义、用途及获取方式。
 
@@ -168,7 +168,7 @@ KOOK 配置字段的获取方式大致分为两类：
 
 #### 2.2 获取 App ID 的步骤
 
-1. 访问 KOOK 开放平台 https://developer.kookapp.cn ，登录 KOOK 账号并完成实名认证。
+1. 访问 KOOK 开放平台 <https://developer.kookapp.cn>，登录 KOOK 账号并完成实名认证。
 2. 进入 **应用管理** → **新建应用**，填写名称、描述和使用场景。
 3. 系统生成 App ID（即 Client ID）和 App Secret。
 4. 如需开发机器人，在 **机器人** 页面创建机器人并获取专属 Token，App ID 会自动绑定该机器人。

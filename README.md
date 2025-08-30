@@ -1,5 +1,8 @@
 # pwn.hust.college
 
+[![License](https://img.shields.io/badge/License-BSD_2--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
+[![khl server](https://www.kaiheila.cn/api/v3/badge/guild?guild_id=7617016560630459&style=0)](https://kook.top/gpbTwZ)
+
 **部署你自己的 pwn.hust.college 实例** - 基于原先 [pwn.college platform](https://github.com/pwncollege/dojo) 的定制化分支仓库 - 创建量身定制的网络安全训练环境。
 
 ![Landing Page](docs/static/landing_page.png)
@@ -26,6 +29,8 @@
 
 ## 贡献
 
-我们欢迎拉取请求（Pull Requests）！🌟 有小的更新吗？提交一个拉取请求（PR），这样大家都能从中受益。
+我们非常欢迎拉取请求（Pull Requests）！🌟 有小的更新吗？提交一个拉取请求（PR），这样大家都能从中受益。
 
-携手合作，我们能让这个项目为所有人变得更出色！🚀 更多详情请参考 [CONTRIBUTING.md](/CONTRIBUTING.md)。
+携手合作，我们能让这个项目为所有人变得更出色！
+
+🚀 更多详情请参考 [CONTRIBUTING.md](/CONTRIBUTING.md)。

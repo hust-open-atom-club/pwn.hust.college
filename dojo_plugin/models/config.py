@@ -14,4 +14,6 @@ DOJO_PREREQUISITES = {
     "system-security-lab-2024": ["welcome"],
     "software-security-lab-2024": ["welcome"],
     "kernel-security": ["welcome"],
+    "system-security-2025": ["welcome"],
+    "system-security-lab-2025": ["welcome"],
 }

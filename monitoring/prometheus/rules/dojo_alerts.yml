@@ -1,0 +1,141 @@
+groups:
+  - name: dojo_system_alerts
+    rules:
+      # 系统资源告警
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU 使用率过高"
+          description: "实例 {{ $labels.instance }} 的 CPU 使用率超过 80%"
+
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "内存使用率过高"
+          description: "实例 {{ $labels.instance }} 的内存使用率超过 85%"
+
+      - alert: HighDiskUsage
+        expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "磁盘使用率过高"
+          description: "实例 {{ $labels.instance }} 的磁盘使用率超过 85%"
+
+  - name: dojo_service_alerts
+    rules:
+      # 服务健康状态告警
+      - alert: CTFdServiceDown
+        expr: up{job="ctfd"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CTFd 服务不可用"
+          description: "CTFd 服务已停止响应"
+
+      - alert: DatabaseServiceDown
+        expr: up{job="mysql-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "数据库服务不可用"
+          description: "MySQL 数据库服务已停止响应"
+
+      - alert: RedisServiceDown
+        expr: up{job="redis-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis 服务不可用"
+          description: "Redis 缓存服务已停止响应"
+
+      - alert: NginxServiceDown
+        expr: up{job="nginx-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Nginx 服务不可用"
+          description: "Nginx Web 服务器已停止响应"
+
+  - name: dojo_performance_alerts
+    rules:
+      # 性能告警
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "响应时间过长"
+          description: "95% 的请求响应时间超过 2 秒"
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "错误率过高"
+          description: "HTTP 5xx 错误率超过 5%"
+
+  - name: dojo_container_alerts
+    rules:
+      # 容器告警
+      - alert: ContainerHighCPU
+        expr: (rate(container_cpu_usage_seconds_total{name!=""}[5m]) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "容器 CPU 使用率过高"
+          description: "容器 {{ $labels.name }} 的 CPU 使用率超过 80%"
+
+      - alert: ContainerHighMemory
+        expr: (container_memory_usage_bytes{name!=""} / container_spec_memory_limit_bytes{name!=""} * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "容器内存使用率过高"
+          description: "容器 {{ $labels.name }} 的内存使用率超过 85%"
+
+      - alert: ContainerRestarting
+        expr: increase(container_start_time_seconds{name!=""}[15m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "容器频繁重启"
+          description: "容器 {{ $labels.name }} 在过去 15 分钟内重启超过 5 次"
+
+  - name: dojo_business_alerts
+    rules:
+      # 业务告警
+      - alert: LowUserActivity
+        expr: rate(user_login_total[1h]) < 1
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "用户活动较低"
+          description: "过去 1 小时内用户登录活动较少"
+
+      - alert: HighChallengeFailureRate
+        expr: rate(challenge_submission_failed_total[1h]) / rate(challenge_submission_total[1h]) * 100 > 20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "挑战提交失败率过高"
+          description: "挑战提交失败率超过 20%" 

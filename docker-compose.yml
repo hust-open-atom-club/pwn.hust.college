@@ -113,6 +113,12 @@ services:
         restart: true
       cache:
         condition: service_started
+    networks:
+      - user_network
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=8000"
+      - "prometheus.io/path=/metrics"
 
   db:
     container_name: db
@@ -133,6 +139,12 @@ services:
       interval: 10s
       timeout: 10s
       retries: 3
+    networks:
+      - user_network
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=9104"
+      - "prometheus.io/path=/metrics"
 
   cache:
     container_name: cache
@@ -140,6 +152,12 @@ services:
     restart: always
     volumes:
       - ./data/redis:/data
+    networks:
+      - user_network
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=9121"
+      - "prometheus.io/path=/metrics"
 
   sshd:
     container_name: sshd
@@ -150,6 +168,10 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
       - "22:22"
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=9100"
+      - "prometheus.io/path=/metrics"
 
   nginx:
     container_name: nginx
@@ -176,7 +198,11 @@ services:
       user_network:
         aliases:
           - nginx
-        ipv4_address: 10.114.0.3
+        ipv4_address: 10.114.0.10
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=9113"
+      - "prometheus.io/path=/metrics"
 
   nginx-certs:
     container_name: nginx_certs
@@ -202,10 +228,141 @@ services:
       user_network:
         aliases:
           - sensai
-        ipv4_address: 10.114.0.2
+        ipv4_address: 10.114.0.11
     restart: always
     depends_on:
       - nginx
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=8000"
+      - "prometheus.io/path=/metrics"
+
+  # Prometheus 监控服务
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - user_network
+    depends_on:
+      - ctfd
+      - db
+      - cache
+
+  # Grafana 可视化服务
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:latest
+    restart: always
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost/monitoring/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - user_network
+    depends_on:
+      - prometheus
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=3000"
+      - "prometheus.io/path=/metrics"
+
+  # Node Exporter - 系统监控
+  node-exporter:
+    container_name: node-exporter
+    image: prom/node-exporter:latest
+    restart: always
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - user_network
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=9100"
+      - "prometheus.io/path=/metrics"
+
+  # MySQL Exporter - 数据库监控
+  mysql-exporter:
+    container_name: mysql-exporter
+    image: prom/mysqld-exporter:latest
+    restart: always
+    ports:
+      - "9104:9104"
+    volumes:
+      - ./monitoring/mysql-exporter/.my.cnf:/.my.cnf:ro
+    networks:
+      - user_network
+    depends_on:
+      - db
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=9104"
+      - "prometheus.io/path=/metrics"
+
+  # Redis Exporter - 缓存监控
+  redis-exporter:
+    container_name: redis-exporter
+    image: oliver006/redis_exporter:latest
+    restart: always
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://cache:6379
+    networks:
+      - user_network
+    depends_on:
+      - cache
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=9121"
+      - "prometheus.io/path=/metrics"
+
+  # Nginx Exporter - Web服务器监控
+  nginx-exporter:
+    container_name: nginx-exporter
+    image: nginx/nginx-prometheus-exporter:latest
+    restart: always
+    ports:
+      - "9113:9113"
+    command:
+      - --nginx.scrape-uri=http://nginx/nginx_status
+    networks:
+      - user_network
+    depends_on:
+      - nginx
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=9113"
+      - "prometheus.io/path=/metrics"
+
 
 
 volumes:
@@ -215,6 +372,8 @@ volumes:
   certs:
   acme:
   open-webui:
+  prometheus_data:
+  grafana_data:
   
 networks:
   user_network:
@@ -225,4 +384,4 @@ networks:
         - subnet: 10.114.0.0/16
     driver_opts:
       com.docker.network.bridge.name: "user_network"
-      com.docker.network.bridge.enable_icc: "false"
+      com.docker.network.bridge.enable_icc: "true"

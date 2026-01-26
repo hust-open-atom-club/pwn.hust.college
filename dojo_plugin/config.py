@@ -22,6 +22,11 @@ KOOK_CLIENT_ID = os.getenv("KOOK_CLIENT_ID")
 KOOK_CLIENT_SECRET = os.getenv("KOOK_CLIENT_SECRET")
 KOOK_APP_ID = os.getenv("KOOK_APP_ID")
 
+DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID")
+DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
+DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+DISCORD_GUILD_ID = os.getenv("DISCORD_GUILD_ID")
+
 def create_seccomp():
     seccomp = json.load(pathlib.Path("/etc/docker/seccomp.json").open())
 

@@ -5,8 +5,10 @@ from CTFd.utils.helpers import get_infos, markup
 from CTFd.utils.decorators import authed_only
 from CTFd.utils.user import get_current_user
 
-from ..models import Dojos, SSHKeys, DojoMembers
+from ..models import SSHKeys, DiscordUsers
 from ..utils.kook import get_kook_user
+from ..config import DISCORD_CLIENT_ID
+from ..utils.discord import get_discord_member, discord_avatar_asset
 
 
 @authed_only
@@ -19,6 +21,10 @@ def settings_override():
     ssh_keys = SSHKeys.query.filter_by(user_id=user.id).all()
 
     kook_user = get_kook_user(user.id)
+
+    discord_user = DiscordUsers.query.filter_by(user=user).first()
+    discord_id = discord_user.discord_id if discord_user else None
+    discord_member = get_discord_member(discord_id)
 
     prevent_name_change = get_config("prevent_name_change")
 
@@ -40,4 +46,8 @@ def settings_override():
         prevent_name_change=prevent_name_change,
         infos=infos,
         kook_user=kook_user,
+        discord_enabled=bool(DISCORD_CLIENT_ID),
+        discord_user=discord_user,
+        discord_member=discord_member,
+        discord_avatar_asset=discord_avatar_asset,
     )

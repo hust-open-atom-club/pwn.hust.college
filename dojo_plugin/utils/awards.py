@@ -1,13 +1,12 @@
 import datetime
-import asyncio
 
 from CTFd.cache import cache
 from CTFd.models import db, Users
 from flask import url_for
 
 from .kook import KookChannels, get_kook_user, send_group_message
-
-from ..models import Dojos, Belts, Emojis, DojoChallenges
+from .discord import DiscordChannels, send_channel_message
+from ..models import Dojos, Belts, Emojis, DojoChallenges, DiscordUsers
 
 
 BELT_ORDER = [ "orange", "yellow", "green", "purple", "blue", "brown", "red", "black" ]
@@ -115,13 +114,23 @@ def update_awards(user, challenge):
         db.session.commit()
         current_belts.append(belt)
 
-    kook_user = get_kook_user(user.id)
     dojo_challenge = DojoChallenges.query.filter_by(challenge_id=challenge.id).first()
-    if kook_user and dojo_challenge:
+    if dojo_challenge:
         award = dojo_challenge.module.name
-        user_mention = f"(met){kook_user.id}(met)"
-        message = f"{user_mention} 恭喜 {user.name} 完成 《{award}》 ！:tada:"
-        send_group_message(message, KookChannels.AWARD)
+
+        # Kook notification
+        kook_user = get_kook_user(user.id)
+        if kook_user:
+            user_mention = f"(met){kook_user.id}(met)"
+            message = f"{user_mention} 恭喜 {user.name} 完成 《{award}》 ！:tada:"
+            send_group_message(message, KookChannels.AWARD)
+
+        # Discord notification
+        discord_user = DiscordUsers.query.filter_by(user_id=user.id).first()
+        if discord_user:
+            discord_mention = f"<@{discord_user.discord_id}>"
+            message = f"{discord_mention} 恭喜 {user.name} 完成 《{award}》 ！:tada:"
+            send_channel_message(message, DiscordChannels.AWARD)
 
     # Emoji Sync Logic
     should_have = {

@@ -8,6 +8,7 @@ from .v1.ssh_key import ssh_key_namespace
 from .v1.dojo import dojo_namespace
 from .v1.belts import belts_namespace
 from .v1.score import score_namespace
+from .v1.discord import discord_namespace
 
 
 api = Blueprint("pwncollege_api", __name__)
@@ -21,3 +22,4 @@ api_v1.add_namespace(dojo_namespace, "/dojo")
 api_v1.add_namespace(belts_namespace, "/belts")
 api_v1.add_namespace(score_namespace, "/score")
 api_v1.add_namespace(score_namespace, "/sso_login")
+api_v1.add_namespace(discord_namespace, "/discord")

@@ -18,7 +18,11 @@ def auth_check(authorization):
     if not authorization or not authorization.startswith("Bearer "):
         return {"success": False, "error": "Unauthorized"}, 401
 
-    token = authorization.split(" ")[1]
+    parts = authorization.split(" ", 1)
+    if len(parts) < 2 or not parts[1]:
+        return {"success": False, "error": "Unauthorized"}, 401
+
+    token = parts[1]
     if not hmac.compare_digest(token, DISCORD_CLIENT_SECRET):
         return {"success": False, "error": "Unauthorized"}, 401
 
@@ -93,7 +97,7 @@ def get_user_activity(discord_id, activity, request):
             return {"success": False, "error": "invalid start format"}, 400
     if end_stamp:
         try:
-            end = datetime.fromisoformat(start_stamp)
+            end = datetime.fromisoformat(end_stamp)
         except:
             return {"success": False, "error": "invalid end format"}, 400
 
@@ -105,7 +109,7 @@ def post_user_activity(discord_id, activity, request):
     if res:
         return res, code
 
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
 
     expected_vals = ['source_user_id',
                      'guild_id',
@@ -118,6 +122,11 @@ def post_user_activity(discord_id, activity, request):
         if ev not in data:
             return {"success": False, "error": f"Invalid JSON data - {ev} not found!"}, 400
 
+    try:
+        message_timestamp = datetime.fromisoformat(data.get("message_timestamp"))
+    except (ValueError, TypeError):
+        return {"success": False, "error": "Invalid message_timestamp format"}, 400
+
     kwargs = {
             'user_id' : discord_id,
             'source_user_id': data.get("source_user_id", ""),
@@ -125,7 +134,7 @@ def post_user_activity(discord_id, activity, request):
             'channel_id': data.get("channel_id"),
             'message_id': data.get("message_id"),
             'timestamp': data.get("timestamp"),
-            'message_timestamp': datetime.fromisoformat(data.get("message_timestamp")),
+            'message_timestamp': message_timestamp,
             'type': activity
             }
     entry = DiscordUserActivity(**kwargs)

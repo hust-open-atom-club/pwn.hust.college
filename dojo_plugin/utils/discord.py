@@ -1,5 +1,4 @@
 import os
-import time
 from enum import Enum
 from logging import getLogger
 
@@ -22,14 +21,13 @@ class DiscordChannels(Enum):
 
 
 def discord_request(endpoint, method="GET", **kwargs):
+    logger = getLogger(__name__)
     headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}"}
-    while True:
-        response = requests.request(method, f"{API_ENDPOINT}{endpoint}", headers=headers, **kwargs)
-        if response.status_code == 429:
-            retry_after = response.json().get("retry_after", 1)
-            time.sleep(retry_after)
-            continue
-        break
+    response = requests.request(method, f"{API_ENDPOINT}{endpoint}", headers=headers, **kwargs)
+    if response.status_code == 429:
+        retry_after = response.json().get("retry_after", 1)
+        logger.warning(f"Discord rate limited on {method} {endpoint}, retry_after={retry_after}s. Dropping request.")
+        return None
     response.raise_for_status()
     if "application/json" in response.headers.get("Content-Type", ""):
         return response.json()
@@ -124,6 +122,9 @@ def send_user_message(message, discord_id, logger=getLogger(__name__)):
     try:
         # Create DM channel
         dm_channel = discord_request("/users/@me/channels", method="POST", json={"recipient_id": discord_id})
+        if not dm_channel:
+            logger.warning(f"Failed to create DM channel for user {discord_id} (rate limited)")
+            return
         channel_id = dm_channel["id"]
         # Send message
         discord_request(f"/channels/{channel_id}/messages", method="POST", json={"content": message})

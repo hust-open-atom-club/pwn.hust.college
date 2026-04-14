@@ -2,7 +2,6 @@
 
 [![License](https://img.shields.io/badge/License-BSD_2--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
 [![khl server](https://www.kaiheila.cn/api/v3/badge/guild?guild_id=7617016560630459&style=0)](https://kook.top/g2f1Ma)
-
 [![Feishu Community](https://img.shields.io/badge/加入飞书外部群-pwn_hust_college_SIG-00A1E9?logo=lark&logoColor=white)](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=766l8a69-0506-4fc2-8f79-712d3d5579ac)
 
 **部署你自己的 pwn.hust.college 实例** - 基于原先 [pwn.college platform](https://github.com/pwncollege/dojo) 的定制化分支仓库 - 创建量身定制的网络安全训练环境。

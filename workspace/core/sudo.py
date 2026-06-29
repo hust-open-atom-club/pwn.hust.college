@@ -1,3 +1,5 @@
+import argparse
+import grp
 import os
 import pwd
 import shutil
@@ -12,27 +14,43 @@ def error(message):
 def main():
     program = os.path.basename(sys.argv[0])
 
-    if not os.path.exists("/run/dojo/var/root/privileged"):
+    parser = argparse.ArgumentParser(description="execute a command as another user")
+    parser.add_argument("-u", "--user", help="run command as specified user", default="0")
+    parser.add_argument("command", help="command to execute")
+    parser.add_argument("args", nargs=argparse.REMAINDER, help="arguments for command")
+
+    args = parser.parse_args()
+
+    privileged = int(open("/run/dojo/sys/workspace/privileged", "r").read())
+    if not privileged:
         error(f"{program}: workspace is not privileged")
 
-    struct_passwd = pwd.getpwuid(os.geteuid())
-    os.setuid(struct_passwd.pw_uid)
-    os.setgid(struct_passwd.pw_gid)
-    os.setgroups([])
+    for user in pwd.getpwall():
+        if args.user in (user.pw_name, str(user.pw_uid)):
+            break
+    else:
+        error(f"{program}: unknown user: {args.user}")
 
-    if len(sys.argv) < 2:
-        error(f"Usage: {program} <command> [args...]")
+    groups = [group.gr_gid for group in grp.getgrall() if user.pw_name in group.gr_mem]
+    if user.pw_gid not in groups:
+        groups.append(user.pw_gid)
 
-    command = sys.argv[1]
-    command_path = shutil.which(sys.argv[1])
+    os.setgid(user.pw_gid)
+    os.setgroups(groups)
+    os.setuid(user.pw_uid)
+
+    os.environ["HOME"] = user.pw_dir
+    os.environ["USER"] = user.pw_name
+    os.environ["SHELL"] = user.pw_shell
+
+    command_path = shutil.which(args.command)
     if not command_path:
-        error(f"{program}: {command}: command not found")
-    argv = sys.argv[1:]
+        error(f"{program}: {args.command}: command not found")
 
     try:
-        os.execve(command_path, argv, os.environ)
+        os.execve(command_path, [args.command, *args.args], os.environ)
     except:
-        os.exit(1)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

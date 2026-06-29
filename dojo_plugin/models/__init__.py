@@ -14,6 +14,7 @@ import pytz
 import yaml
 from flask import current_app
 from sqlalchemy import String, DateTime, case, cast, Numeric
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import synonym
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.orm.session import object_session
@@ -63,18 +64,22 @@ class Dojos(db.Model):
     private_key = db.Column(db.String(512), unique=True)
     update_code = db.Column(db.String(32), unique=True, index=True)
 
-    id = db.Column(db.String(32), index=True)
+    id = db.Column(db.String(32), index=True, nullable=False)
     name = db.Column(db.String(128))
     description = db.Column(db.Text)
 
     official = db.Column(db.Boolean, index=True)
     password = db.Column(db.String(128))
 
-    data = db.Column(db.JSON)
-    data_fields = ["type", "award", "course", "pages", "importable", "comparator"]
+    data = db.Column(JSONB)
+    data_fields = ["type", "award", "course", "permissions", "pages", "privileged", "importable", "comparator", "show_scoreboard", "custom_js"]
     data_defaults = {
+        "permissions": [],
         "pages": [],
+        "privileged": False,
         "importable": True,
+        "show_scoreboard": True,
+        "custom_js": None,
     }
 
     users = db.relationship("DojoUsers", back_populates="dojo")
@@ -109,7 +114,7 @@ class Dojos(db.Model):
 
     def __getattr__(self, name):
         if name in self.data_fields:
-            return self.data.get(name, self.data_defaults.get(name))
+            return (self.data or {}).get(name, self.data_defaults.get(name))
         raise AttributeError(f"No attribute '{name}'")
 
     def __setattr__(self, name, value):
@@ -180,6 +185,15 @@ class Dojos(db.Model):
             .scalar_subquery(),
             deferred=True)
 
+    @deferred_definition
+    def required_challenges_count():
+        return db.column_property(
+            db.select([db.func.count()])
+            .where(Dojos.dojo_id == DojoChallenges.dojo_id)
+            .where(DojoChallenges.required)
+            .scalar_subquery(),
+            deferred=True)
+
     @property
     def solves_code(self):
         return hashlib.md5(self.private_key.encode() + b"SOLVES").hexdigest()
@@ -216,7 +230,7 @@ class Dojos(db.Model):
         return (
             ~cls.official,
             cls.data["type"],
-            cast(case([(cls.data["comparator"] == None, 1000)], else_=cls.data["comparator"]), Numeric()),
+            db.func.coalesce(cast(cls.data["comparator"].astext, Numeric()), 1000),
             cls.name,
         )
 
@@ -225,7 +239,7 @@ class Dojos(db.Model):
         return (
             (cls.from_id(id) if id is not None else cls.query)
             .filter(or_(cls.official,
-                        and_(cls.data["type"] == "public", cls.password == None),
+                        and_(cls.data["type"].astext == "public", cls.password == None),
                         cls.dojo_id.in_(db.session.query(DojoUsers.dojo_id)
                                         .filter_by(user=user)
                                         .subquery())))
@@ -236,15 +250,22 @@ class Dojos(db.Model):
         return DojoChallenges.solves(dojo=self, **kwargs)
 
     def completions(self):
-        """
-        Returns a list of (User, completion_timestamp) tuples for users, sorted by time in ascending order.
-        """
-        sq = Solves.query.join(DojoChallenges, Solves.challenge_id == DojoChallenges.challenge_id).add_columns(
-            Solves.user_id.label("solve_user_id"), db.func.count().label("solve_count"), db.func.max(Solves.date).label("last_solve")
-        ).filter(DojoChallenges.dojo == self).group_by(Solves.user_id).subquery()
-        return Users.query.join(sq).filter_by(
-            solve_count=len(self.challenges)
-        ).add_column(sq.columns.last_solve).order_by(sq.columns.last_solve).all()
+        solves_subquery = (
+            self.solves(ignore_visibility=True, ignore_admins=False)
+            .with_entities(Solves.user_id,
+                           db.func.count().label("solve_count"),
+                           db.func.max(Solves.date).label("last_solve"))
+            .group_by(Solves.user_id)
+            .having(db.func.count() == len([challenge for challenge in self.challenges if challenge.required]))
+            .subquery()
+        )
+        return (
+            Users.query
+            .join(solves_subquery, Users.id == solves_subquery.c.user_id)
+            .add_columns(solves_subquery.c.last_solve)
+            .order_by(solves_subquery.c.last_solve)
+            .all()
+        )
 
     def awards(self):
         if not self.award:
@@ -253,22 +274,29 @@ class Dojos(db.Model):
         if "belt" in self.award:
             result = result.where(Awards.type == "belt", Awards.name == self.award["belt"])
         elif "emoji" in self.award:
-            result = result.where(Awards.type == "emoji", Awards.name == self.award["emoji"], Awards.category == self.hex_dojo_id)
+            result = result.where(Awards.type == "emoji", Awards.name != "STALE", Awards.category == self.hex_dojo_id)
 
         awards = result.order_by(Awards.date.desc()).all()
-        if "emoji" in self.award:
-            awards = [ a for a in awards if a.name == self.award["emoji"] ]
 
         return awards
 
     def completed(self, user):
-        return self.solves(user=user, ignore_visibility=True, ignore_admins=False).count() == len(self.challenges)
+        return self.solves(user=user, ignore_visibility=True, ignore_admins=False).count() == len([challenge for challenge in self.challenges if challenge.required])
 
     def is_admin(self, user=None):
         if user is None:
             user = get_current_user()
         dojo_admin = DojoAdmins.query.filter_by(dojo=self, user=user).first()
         return dojo_admin is not None or is_admin()
+
+    @property
+    def is_public_or_official(self):
+        return self.official or self.type == "public"
+
+    def is_member(self, user_id):
+        if self.is_public_or_official:
+            return True
+        return DojoUsers.query.filter_by(dojo_id=self.dojo_id, user_id=user_id).first() is not None
 
     __repr__ = columns_repr(["name", "reference_id"])
 
@@ -284,6 +312,9 @@ class DojoUsers(db.Model):
 
     dojo = db.relationship("Dojos", back_populates="users", overlaps="admins,members,students")
     user = db.relationship("Users")
+
+    def survey_responses(self):
+        return DojoChallenges.survey_responses(user=self.user)
 
     def solves(self, **kwargs):
         return DojoChallenges.solves(user=self.user, dojo=self.dojo, **kwargs)
@@ -324,14 +355,16 @@ class DojoModules(db.Model):
     dojo_id = db.Column(db.Integer, db.ForeignKey("dojos.dojo_id", ondelete="CASCADE"), primary_key=True)
     module_index = db.Column(db.Integer, primary_key=True)
 
-    id = db.Column(db.String(32), index=True)
+    id = db.Column(db.String(32), index=True, nullable=False)
     name = db.Column(db.String(128))
     description = db.Column(db.Text)
 
-    data = db.Column(db.JSON)
-    data_fields = ["importable"]
+    data = db.Column(JSONB)
+    data_fields = ["importable", "show_scoreboard", "show_challenges"]
     data_defaults = {
-        "importable": True
+        "importable": True,
+        "show_scoreboard": True,
+        "show_challenges": True,
     }
 
     dojo = db.relationship("Dojos", back_populates="_modules")
@@ -363,10 +396,14 @@ class DojoModules(db.Model):
             for field in ["id", "name", "description"]:
                 kwargs[field] = kwargs[field] if kwargs.get(field) is not None else getattr(default, field, None)
 
+        def set_module_import(challenge):
+            challenge.data["module_import"] = True
+            return challenge
+
         kwargs["challenges"] = (
             kwargs.pop("challenges", None) or
             ([DojoChallenges(
-                default=challenge,
+                default=set_module_import(challenge),
                 visibility=(DojoChallengeVisibilities(start=visibility.start) if visibility else None),
             ) for challenge in default.challenges] if default else [])
         )
@@ -382,7 +419,7 @@ class DojoModules(db.Model):
 
     def __getattr__(self, name):
         if name in self.data_fields:
-            return self.data.get(name, self.data_defaults.get(name))
+            return (self.data or {}).get(name, self.data_defaults.get(name))
         raise AttributeError(f"No attribute '{name}'")
 
     @classmethod
@@ -408,7 +445,8 @@ class DojoModules(db.Model):
     @delete_before_insert("_resources")
     def resources(self, value):
         for resource_index, resource in enumerate(value):
-            resource.resource_index = resource_index
+            if not hasattr(resource, 'resource_index') or resource.resource_index is None:
+                resource.resource_index = resource_index
         self._resources = value
 
     @property
@@ -419,12 +457,46 @@ class DojoModules(db.Model):
     def assessments(self):
         return [assessment for assessment in (self.dojo.course or {}).get("assessments", []) if assessment.get("id") == self.id]
 
-    def visible_challenges(self, user=None):
-        return [challenge for challenge in self.challenges if challenge.visible() or self.dojo.is_admin(user=user)]
+    @property
+    def unified_items(self):
+        items = []
+
+        for resource in self.resources:
+            items.append((resource.resource_index, resource))
+
+        for challenge in self.challenges:
+            if challenge.unified_index is not None:
+                index = challenge.unified_index
+            else:
+                index = 1000 + challenge.challenge_index
+            items.append((index, challenge))
+
+        items.sort(key=lambda x: x[0])
+        return [item for _, item in items]
+
+    def visible_challenges(self, when=None, required_only=False):
+        when = when or datetime.datetime.utcnow()
+        return list(
+            DojoChallenges.query
+            .filter(DojoChallenges.dojo_id == self.dojo_id,
+                    DojoChallenges.module_index == self.module_index)
+            .outerjoin(DojoChallengeVisibilities, and_(
+                DojoChallengeVisibilities.dojo_id == DojoChallenges.dojo_id,
+                DojoChallengeVisibilities.module_index == DojoChallenges.module_index,
+                DojoChallengeVisibilities.challenge_index == DojoChallenges.challenge_index
+                ))
+            .filter(
+                or_(DojoChallengeVisibilities.start == None, when >= DojoChallengeVisibilities.start),
+                or_(DojoChallengeVisibilities.stop == None, when <= DojoChallengeVisibilities.stop),
+            )
+            .filter(
+                not required_only or DojoChallenges.required
+            )
+            .order_by(DojoChallenges.challenge_index)
+        )
 
     def solves(self, **kwargs):
         return DojoChallenges.solves(module=self, **kwargs)
-
 
     @hybrid_method
     def visible(self, when=None):
@@ -447,6 +519,7 @@ class DojoModules(db.Model):
 
 class DojoChallenges(db.Model):
     __tablename__ = "dojo_challenges"
+    item_type = "challenge"
     __table_args__ = (
         db.ForeignKeyConstraint(["dojo_id"], ["dojos.dojo_id"], ondelete="CASCADE"),
         db.ForeignKeyConstraint(["dojo_id", "module_index"],
@@ -460,15 +533,24 @@ class DojoChallenges(db.Model):
     challenge_index = db.Column(db.Integer, primary_key=True)
 
     challenge_id = db.Column(db.Integer, db.ForeignKey("challenges.id", ondelete="CASCADE"), index=True)
-    id = db.Column(db.String(32), index=True)
+    id = db.Column(db.String(32), index=True, nullable=False)
     name = db.Column(db.String(128))
     description = db.Column(db.Text)
+    required = db.Column(db.Boolean, default=True, nullable=False)
 
-    data = db.Column(db.JSON)
-    data_fields = ["image", "path_override", "importable", "allow_privileged"]
+    data = db.Column(JSONB)
+    data_fields = ["image", "privileged", "path_override", "importable", "allow_privileged", "progression_locked", "survey", "unified_index", "interfaces"]
     data_defaults = {
+        "privileged": False,
         "importable": True,
-        "allow_privileged": True
+        "allow_privileged": True,
+        "progression_locked": False,
+        "interfaces": [
+            dict(name="Terminal", port=7681),
+            dict(name="Code",     port=8080),
+            dict(name="Desktop",  port=6080),
+            dict(name="SSH"),
+        ],
     }
 
     dojo = db.relationship("Dojos",
@@ -501,12 +583,15 @@ class DojoChallenges(db.Model):
             # TODO: maybe we should track the entire import
             kwargs["data"]["image"] = default.data.get("image")
             kwargs["data"]["path_override"] = str(default.path)
+            # only update the unified_index for module and dojo imports, not challenge specific ones
+            if default.data.get("module_import", False):
+                kwargs["data"]["unified_index"] = default.data.get("unified_index")
 
         super().__init__(*args, **kwargs)
 
     def __getattr__(self, name):
         if name in self.data_fields:
-            return self.data.get(name, self.data_defaults.get(name))
+            return (self.data or {}).get(name, self.data_defaults.get(name))
         raise AttributeError(f"No attribute '{name}'")
 
     @classmethod
@@ -529,20 +614,37 @@ class DojoChallenges(db.Model):
             cls.visibility.has(or_(DojoChallengeVisibilities.stop == None, when <= DojoChallengeVisibilities.stop)),
         ))
 
+    # note: currently unused, may need future testing
     @hybrid_method
-    def solves(self, *, user=None, dojo=None, module=None, ignore_visibility=False, ignore_admins=True):
+    def survey_responses(self, user=None):
+        result = SurveyResponses.query.filter(
+            SurveyResponses.dojo_id == self.dojo_id,
+            SurveyResponses.challenge_id == self.challenge_id
+            )
+
+        if user is not None:
+            result = result.filter(SurveyResponses.user_id == user.id)
+
+        return result
+
+    @hybrid_method
+    def solves(self, *, user=None, dojo=None, module=None, ignore_visibility=False, ignore_admins=True, required_only=True):
         result = (
             Solves.query
+            .filter_by(type=Solves.__mapper__.polymorphic_identity)
             .join(DojoChallenges, and_(
                 DojoChallenges.challenge_id==Solves.challenge_id,
                 ))
+            .join(DojoModules, and_(
+                DojoModules.dojo_id == DojoChallenges.dojo_id,
+                DojoModules.module_index == DojoChallenges.module_index))
             .outerjoin(DojoUsers, and_(
                 DojoUsers.user_id == Solves.user_id,
                 DojoUsers.dojo_id == DojoChallenges.dojo_id,
                 ))
             .join(Dojos, and_(
                 Dojos.dojo_id == DojoChallenges.dojo_id,
-                or_(Dojos.official, Dojos.data["type"] == "public", DojoUsers.user_id != None),
+                or_(Dojos.official, Dojos.data["type"].astext == "public", DojoUsers.user_id != None),
                 ))
             .join(Users, Users.id == Solves.user_id)
         )
@@ -558,7 +660,7 @@ class DojoChallenges(db.Model):
                     or_(DojoChallengeVisibilities.start == None, Solves.date >= DojoChallengeVisibilities.start),
                     or_(DojoChallengeVisibilities.stop == None, Solves.date <= DojoChallengeVisibilities.stop),
                 )
-                .filter(Users.hidden == False)
+                .filter(~Users.hidden)
             )
 
         if ignore_admins:
@@ -571,20 +673,20 @@ class DojoChallenges(db.Model):
         if module:
             result = result.filter(DojoChallenges.module == module)
 
+        if required_only:
+            result = result.filter(DojoChallenges.required)
+
         return result
 
     @property
     def path(self):
         return (self.module.path / self.id
-                if not self.path_override else
+                if not self.path_override or (self.module.dojo.official and os.path.exists(self.module.path / self.id)) else
                 pathlib.Path(self.path_override))
 
     @property
     def image(self):
-        if self.data.get("image"):
-            assert any(isinstance(dojo_admin.user, Admins) for dojo_admin in self.dojo.admins), "Custom images are only allowed for admin dojos"
-            return self.data["image"]
-        return "pwncollege-challenge"
+        return self.data.get("image") or "pwncollege/challenge-legacy"
 
     @property
     def reference_id(self):
@@ -602,8 +704,23 @@ class DojoChallenges(db.Model):
     __repr__ = columns_repr(["module", "id", "challenge_id"])
 
 
+class SurveyResponses(db.Model):
+    __tablename__ = "survey_responses"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    dojo_id = db.Column(db.Integer, nullable=False)
+    challenge_id = db.Column(db.Integer, index=True, nullable=False)
+    user_id = db.Column(db.Integer, nullable=False)
+
+    prompt = db.Column(db.Text, nullable=False)
+    response = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow, nullable=False)
+
+
+
 class DojoResources(db.Model):
     __tablename__ = "dojo_resources"
+    item_type = "resource"
 
     __table_args__ = (
         db.ForeignKeyConstraint(["dojo_id", "module_index"],
@@ -618,8 +735,9 @@ class DojoResources(db.Model):
     type = db.Column(db.String(80), index=True)
     name = db.Column(db.String(128))
 
-    data = db.Column(db.JSON)
-    data_fields = ["content", "video", "playlist", "slides"]
+    data = db.Column(JSONB)
+    data_fields = ["content", "video", "playlist", "slides", "expandable"]
+    data_defaults = {"expandable": True}
 
     dojo = db.relationship("Dojos", back_populates="resources", viewonly=True)
     module = db.relationship("DojoModules", back_populates="_resources")
@@ -642,7 +760,7 @@ class DojoResources(db.Model):
             if kwargs.get("data"):
                 raise AttributeError("Import requires data to be empty")
 
-            for field in ["type", "name"]:
+            for field in ["type", "name", "resource_index"]:
                 kwargs[field] = kwargs[field] if kwargs.get(field) is not None else getattr(default, field, None)
 
             for field in self.data_fields:
@@ -656,7 +774,7 @@ class DojoResources(db.Model):
 
     def __getattr__(self, name):
         if name in self.data_fields:
-            return self.data.get(name)
+            return (self.data or {}).get(name, self.data_defaults.get(name))
         raise AttributeError(f"No attribute '{name}'")
 
     @hybrid_property
@@ -738,14 +856,33 @@ class DojoModuleVisibilities(db.Model):
 
 class SSHKeys(db.Model):
     __tablename__ = "ssh_keys"
-    user_id = db.Column(
-        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    value = db.Column(db.Text)
+
+    __table_args__ = (
+        db.Index("uq_ssh_keys_digest",
+                 db.func.digest(value, "sha256"),
+                 unique=True),
     )
-    value = db.Column(db.String(750), primary_key=True, unique=True)
 
     user = db.relationship("Users")
 
     __repr__ = columns_repr(["user", "value"])
+
+
+class DiscordUserActivity(db.Model):
+    __tablename__ = "discord_user_activity"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.BigInteger, index=True)
+    source_user_id = db.Column(db.BigInteger)
+    timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    type = db.Column(db.String(80), index=True)
+    guild_id = db.Column(db.BigInteger)
+    channel_id = db.Column(db.BigInteger)
+    message_id = db.Column(db.BigInteger)
+    message_timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
 
 class DiscordUsers(db.Model):
@@ -753,9 +890,25 @@ class DiscordUsers(db.Model):
     user_id = db.Column(
         db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
-    discord_id = db.Column(db.Text, unique=True)
+    discord_id = db.Column(db.BigInteger, unique=True)
 
     user = db.relationship("Users")
+
+    def thanks(self, start=None, end=None):
+        return DiscordUserActivity.query.filter(
+            DiscordUserActivity.type == "thanks",
+            DiscordUserActivity.user_id == self.discord_id,
+            DiscordUserActivity.message_timestamp >= start if start else True,
+            DiscordUserActivity.message_timestamp <= end if end else True
+        )
+
+    def memes(self, start=None, end=None):
+        return DiscordUserActivity.query.filter(
+            DiscordUserActivity.user_id == self.discord_id,
+            DiscordUserActivity.message_timestamp >= start if start else True,
+            DiscordUserActivity.message_timestamp <= end if end else True,
+            DiscordUserActivity.type == "memes",
+        )
 
     __repr__ = columns_repr(["user", "discord_id"])
 

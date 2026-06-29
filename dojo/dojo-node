@@ -72,6 +72,8 @@ case "$ACTION" in
     "show")
         printf "DOJO_HOST: %s\n" "$DOJO_HOST"
         printf "WORKSPACE_NODE: %d\n" "$WORKSPACE_NODE"
+        printf "WORKSPACE_HOST: %s\n" "$WORKSPACE_HOST"
+        printf "WORKSPACE_SECRET: %s\n" "$WORKSPACE_SECRET"
         printf "WORKSPACE_KEY: %s\n\n" "${WORKSPACE_KEY:-$(cat /data/wireguard/publickey)}"
         wg show wg0
         ;;
@@ -102,7 +104,7 @@ case "$ACTION" in
             mv /data/workspace_nodes.json.tmp /data/workspace_nodes.json
             dojo-node refresh
         else
-            echo "Usage: $0 remove NODE_ID"
+            echo "Usage: $0 del NODE_ID"
         fi
         ;;
 

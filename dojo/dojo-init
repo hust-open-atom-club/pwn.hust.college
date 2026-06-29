@@ -1,12 +1,29 @@
 #!/bin/sh
 
-if findmnt -n /data >/dev/null; then
-    echo '[+] Data mount exists.'
-    mount --make-shared /data
-else
-    echo '[!] Data mount does not exist. Please start the dojo with a data mount (`-v /data:/data`).'
-    exit 1
+mount --make-shared /
+
+data_mount_options="$(findmnt -nro OPTIONS -- /data 2>/dev/null)"
+if [ "$?" -ne 0 ]; then
+    if [ -f /data.img ]; then
+        echo "[+] Using existing data image"
+    else
+        echo "[+] Creating data storage"
+        truncate -s 256G /data.img
+        mkfs.ext4 /data.img
+    fi
+    loop_device=$(losetup -f)
+    if [ ! -e "$loop_device" ]; then
+        mknod $loop_device b 7 $(echo $loop_device | tr -cd '0-9')
+        chmod --reference=/dev/loop0 $loop_device
+        chown --reference=/dev/loop0 $loop_device
+    fi
+    losetup "$loop_device" /data.img
+    mount --options X-mount.mkdir "$loop_device" /data
+elif printf '%s' "$data_mount_options" | grep -Fqw 'nosuid'; then
+    echo "[+] Remounting /data with suid enabled"
+    mount --options remount,suid /data
 fi
+mount --make-shared /data
 
 >> /data/config.env
 
@@ -23,33 +40,32 @@ define () {
 DEFAULT_DOJO_HOST=localhost.pwn.college
 
 define DOJO_HOST "${DEFAULT_DOJO_HOST}"
-define VIRTUAL_HOST "${DEFAULT_DOJO_HOST}"
-define LETSENCRYPT_HOST "${DEFAULT_DOJO_HOST}"
+define WORKSPACE_HOST workspace."${DEFAULT_DOJO_HOST}"
 define DOJO_ENV development
+define DOJO_OFFLINE false
 define DOJO_WORKSPACE core
 define WORKSPACE_KEY
+define WORKSPACE_SECRET $(openssl rand -hex 16)
 define WORKSPACE_NODE 0
 define SECRET_KEY $(openssl rand -hex 16)
-define UBUNTU_VERSION 20.04
+define DOJO_SSH_SERVICE_KEY $(openssl rand -hex 16)
 define INTERNET_FOR_ALL False
 define MAIL_SERVER
 define MAIL_PORT
 define MAIL_USERNAME
 define MAIL_PASSWORD
 define MAIL_ADDRESS
+define CORS_ORIGINS
+define DOCKER_USERNAME
+define DOCKER_TOKEN
 define DISCORD_CLIENT_ID
 define DISCORD_CLIENT_SECRET
 define DISCORD_BOT_TOKEN
 define DISCORD_GUILD_ID
-define DEFAULT_INSTALL_SELECTION no # default to not installing tools
-define INSTALL_IDA_FREE no # explicitly disable -- only for free dojos
-define INSTALL_BINJA_FREE no # explicitly disable -- only for free dojos
-define INSTALL_WINDOWS no # explicitly disable
 define DB_HOST db
 define DB_NAME ctfd
 define DB_USER ctfd
 define DB_PASS ctfd
-define DB_EXTERNAL no # change to anything but no and the db container will not start mysql
 define BACKUP_AES_KEY_FILE
 define S3_BACKUP_BUCKET
 define AWS_DEFAULT_REGION
@@ -57,40 +73,60 @@ define AWS_ACCESS_KEY_ID
 define AWS_SECRET_ACCESS_KEY
 define MAC_HOSTNAME
 define MAC_USERNAME
-define MAC_KEY_FILE
-define MAC_GUEST_CONTROL_FILE
+define ENABLE_SPLUNK false
 
 mv /data/.config.env /data/config.env
 . /data/config.env
 
-mkdir -p /data/workspace/nix
-mkdir -p /data/workspacefs/bin
-
-if [ ! -f /data/homes/homefs ]; then
-    echo "[+] Creating user home structure."
-    mkdir -p /data/homes
-    mkdir -p /data/homes/data
-    mkdir -p /data/homes/mounts
-    dd if=/dev/zero of=/data/homes/homefs bs=1M count=0 seek=1000
-    mkfs.ext4 -O ^has_journal /data/homes/homefs
-    mount /data/homes/homefs -o X-mount.mkdir /data/homes/homefs_mount
-    rm -rf /data/homes/homefs_mount/lost+found/
-    cp -a /etc/skel/. /data/homes/homefs_mount
-    chown -R 1000:1000 /data/homes/homefs_mount
-    umount /data/homes/homefs_mount
-    rm -rf /data/homes/homefs_mount
+# Configure Docker daemon for Splunk logging if enabled
+if [ "${ENABLE_SPLUNK}" = "true" ]; then
+    echo "[+] Configuring Docker daemon for Splunk logging..."
+    if [ "$WORKSPACE_NODE" -eq 0 ]; then
+        echo "127.0.0.1 splunk" >> /etc/hosts
+    else
+        echo "192.168.42.1 splunk" >> /etc/hosts
+    fi
+    if [ -f /tmp/daemon-splunk.json ]; then
+        cp /tmp/daemon-splunk.json /etc/docker/daemon.json
+        echo "[+] Docker daemon configured for Splunk logging"
+    else
+        echo "[!] Warning: Splunk daemon configuration not found"
+    fi
+else
+    # Ensure standard configuration is used
+    if [ -f /tmp/daemon.json ]; then
+        cp /tmp/daemon.json /etc/docker/daemon.json
+    fi
 fi
 
-mkdir -p /data/workspace/homes/mounts /data/workspace/homes/overlays
-cat <<EOF > /etc/auto.master.d/homes.autofs
-/data/homes/mounts program:/usr/bin/automount-home --timeout=28800
-/data/workspace/homes/mounts /etc/auto.nfs --timeout=25200
-/data/workspace/homes/overlays program:/usr/bin/automount-overlay --timeout=25200
-EOF
-echo '* -fstype=nfs,rw,soft,nosuid 192.168.42.1:/data/homes/mounts/&' > /etc/auto.nfs
+mkdir -p /data/workspace/nix
+mkdir -p /data/workspacefs/bin
+mkdir -p /data/ctfd-ipython
+mkdir -p /data/coverage
 
-echo '/data/homes 192.168.42.0/24(fsid=0,rw,sync,no_subtree_check,no_root_squash,crossmnt)' > /etc/exports
-exportfs -ra
+# Enable systemd journal forwarding to Splunk if configured
+if [ "${ENABLE_SPLUNK}" = "true" ]; then
+    echo "[+] Enabling systemd journal forwarding to Splunk..."
+    systemctl enable journal-to-splunk.service 2>/dev/null || true
+fi
+
+mkdir -p /data/homes
+if [ "$(findmnt -nro FSTYPE -- /data/homes)" != "btrfs" ] && [ "$(findmnt -nro FSTYPE -- /data)" != "btrfs" ]; then
+    if [ ! -f /data/homes/btrfs.img ]; then
+        echo "[+] Creating home storage"
+        truncate -s 256G /data/homes/btrfs.img
+        mkfs.btrfs /data/homes/btrfs.img
+    fi
+    loop_device=$(losetup -f)
+    if [ ! -e "$loop_device" ]; then
+        mknod $loop_device b 7 $(echo $loop_device | tr -cd '0-9')
+        chmod --reference=/dev/loop0 $loop_device
+        chown --reference=/dev/loop0 $loop_device
+    fi
+    losetup "$loop_device" /data/homes/btrfs.img
+    mount "$loop_device" /data/homes
+fi
+btrfs quota enable /data/homes
 
 if [ ! -d /data/ssh_host_keys ]; then
     mkdir -p /data/ssh_host_keys
@@ -100,7 +136,9 @@ if [ ! -d /data/ssh_host_keys ]; then
         cp -a $key /data/ssh_host_keys
     done
 fi
-ssh-keyscan github.com > /data/ssh_host_keys/ssh_known_hosts
+if [ "${DOJO_OFFLINE}" != "true" ]; then
+    ssh-keyscan github.com > /data/ssh_host_keys/ssh_known_hosts
+fi
 for file in $(ls /data/ssh_host_keys/*); do
     cp -a $file /etc/ssh
 done
@@ -110,17 +148,37 @@ then
     openssl rand 214 > "${BACKUP_AES_KEY_FILE}"
 fi
 
-sysctl -w kernel.pty.max=1048576
-echo core > /proc/sys/kernel/core_pattern
+if [ -n "$(cat /proc/net/ip_tables_names)" ]; then
+    echo "[+] Pre-existing iptables-legacy tables detected. Switching to iptables-legacy."
+    update-alternatives --set iptables /usr/sbin/iptables-legacy
+    update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
+else
+    nft list tables > /dev/null 2>&1  # This will load the nf_tables module, if it's not already loaded and is available
+    if [ ! -e /sys/module/nf_tables ]; then
+        echo '[+] Could not load nf_tables module. Switching to iptables-legacy.'
+        update-alternatives --set iptables /usr/sbin/iptables-legacy
+        update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
+    fi
+fi
 
 dojo-node refresh
 
+iptables -F WORKSPACE-NET 2>/dev/null || iptables -N WORKSPACE-NET
+iptables -A WORKSPACE-NET -s 10.0.0.0/24 -m conntrack --ctstate NEW -j RETURN
+iptables -A WORKSPACE-NET -s 192.168.42.0/24 -m conntrack --ctstate NEW -j RETURN
+iptables -A WORKSPACE-NET -s 10.0.0.0/8 -d 192.168.42.1 -p tcp --dport 80 -m conntrack --ctstate NEW -j ACCEPT
+iptables -A WORKSPACE-NET -s 10.0.0.0/8 -d 192.168.42.1 -p tcp --dport 443 -m conntrack --ctstate NEW -j ACCEPT
+iptables -A WORKSPACE-NET -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
+if [ "${DOJO_OFFLINE}" != "true" ]; then
+    for host in $(cat /opt/pwn.college/user_firewall.allowed); do
+        iptables -A WORKSPACE-NET -d $(host $host | awk '/has address/ {print $NF}' | sort | head -n1) -j RETURN
+    done
+fi
+iptables -A WORKSPACE-NET -j DROP
+
 iptables -N DOCKER-USER
-iptables -I DOCKER-USER -i workspace_net -j DROP
-for host in $(cat /opt/pwn.college/user_firewall.allowed); do
-    iptables -I DOCKER-USER -i workspace_net -d $(host $host | awk '{print $NF; exit}') -j ACCEPT
-done
-iptables -I DOCKER-USER -i workspace_net -s 10.0.0.0/24 -m conntrack --ctstate NEW -j ACCEPT
-iptables -I DOCKER-USER -i workspace_net -d 10.0.0.0/8 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-iptables -I DOCKER-USER -i workspace_net -s 192.168.42.0/24 -m conntrack --ctstate NEW -j ACCEPT
-iptables -I DOCKER-USER -i workspace_net -d 192.168.42.0/24 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A DOCKER-USER -i workspace_net -j WORKSPACE-NET
+iptables -A DOCKER-USER -o workspace_net -j WORKSPACE-NET
+
+iptables -A INPUT -i workspace_net -j WORKSPACE-NET
+iptables -A OUTPUT -o workspace_net -j WORKSPACE-NET

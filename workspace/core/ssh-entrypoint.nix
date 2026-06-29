@@ -1,6 +1,19 @@
 { pkgs }:
 
-pkgs.stdenv.mkDerivation {
+let
+  sshEntryPoint = pkgs.writeScript "ssh-entrypoint" ''
+    #!${pkgs.bashInteractive}/bin/bash
+
+    if [ "$#" -gt 0 ]; then
+      $SHELL "$@"
+    else
+      $SHELL --login
+    fi
+
+    exit $?
+  '';
+
+in pkgs.stdenv.mkDerivation {
   name = "ssh-entrypoint";
   propagatedBuildInputs = with pkgs; [ bashInteractive ];
   dontUnpack = true;
@@ -8,7 +21,7 @@ pkgs.stdenv.mkDerivation {
   installPhase = ''
     runHook preInstall
     mkdir -p $out/bin
-    ln -s ${pkgs.bashInteractive}/bin/bash $out/bin/ssh-entrypoint
+    cp ${sshEntryPoint} $out/bin/ssh-entrypoint
     runHook postInstall
   '';
 }

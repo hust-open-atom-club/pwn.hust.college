@@ -49,7 +49,7 @@ let
         --listen 6080
 
     until [ -e /tmp/.X11-unix/X0 ]; do sleep 0.1; done
-    until ${pkgs.curl}/bin/curl -s localhost:6080 >/dev/null; do sleep 0.1; done
+    until ${pkgs.curl}/bin/curl -fs localhost:6080 >/dev/null; do sleep 0.1; done
 
     # By default, xfce4-session invokes dbus-launch without `--config-file`, and it fails to find /etc/dbus-1/session.conf; so we manually specify the config file here.
     ${service}/bin/dojo-service start desktop-service/xfce4-session \
@@ -105,6 +105,7 @@ in pkgs.stdenv.mkDerivation {
     runHook preInstall
     mkdir -p $out/bin
     cp ${serviceScript} $out/bin/dojo-desktop
+    ln -s ${pkgs.xfce.xfce4-terminal}/bin/xfce4-terminal $out/bin/x-terminal-emulator
     rsync -a --ignore-existing $src/. ${xfce}/. ${pkgs.elementary-xfce-icon-theme}/. $out
     runHook postInstall
   '';

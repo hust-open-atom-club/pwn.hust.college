@@ -1,55 +1,128 @@
-FROM ubuntu:24.04
+# syntax=docker/dockerfile:1
+
+FROM ubuntu:24.04 AS kata-builder
+
+ENV KATA_VERSION=3.19.1
+
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential bc flex bison libssl-dev libelf-dev dwarves \
+      curl ca-certificates yq \
+    && rm -rf /var/lib/apt/lists/*
+
+ADD https://github.com/kata-containers/kata-containers.git#${KATA_VERSION} /src/kata-containers
+
+WORKDIR /src/kata-containers/tools/packaging/kernel
+
+COPY <<EOF configs/fragments/x86_64/dojo.conf
+CONFIG_SECURITY_LANDLOCK=y
+
+CONFIG_BPF_JIT=y
+CONFIG_BPF_SYSCALL=y
+CONFIG_BPF=y
+CONFIG_DEBUG_INFO_BTF=y
+CONFIG_DYNAMIC_FTRACE=y
+CONFIG_FTRACE=y
+CONFIG_FUNCTION_TRACER=y
+CONFIG_KPROBE_EVENTS=y
+CONFIG_KPROBES=y
+CONFIG_PERF_EVENTS=y
+CONFIG_PROFILING=y
+EOF
+
+RUN <<EOF
+  KERNEL_VERSION=$(yq -r '.assets.kernel.version' ../../../versions.yaml)
+  ./build-kernel.sh -v "$KERNEL_VERSION" setup
+  ./build-kernel.sh -v "$KERNEL_VERSION" build
+  ./build-kernel.sh -v "$KERNEL_VERSION" install
+EOF
+
+FROM ubuntu:24.04 AS dojo
+
+SHELL ["/bin/bash", "-ceox", "pipefail"]
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LC_CTYPE=C.UTF-8
 
-RUN apt-get update && \
-    apt-get install -y \
-        autofs \
-        build-essential \
-        curl \
-        git \
-        host \
-        htop \
-        iproute2 \
-        iputils-ping \
-        jq \
-        nfs-kernel-server \
-        unzip \
-        wget \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && xargs apt-get install -yqq <<EOF && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+        build-essential
+        btrfs-progs
+        curl
+        git
+        host
+        htop
+        iproute2
+        iputils-ping
+        jq
+        kmod
+        python3-requests
+        unzip
+        wget
         wireguard
+EOF
 
-RUN curl -fsSL https://get.docker.com | /bin/sh && \
-    echo '{ "data-root": "/data/docker", "hosts": ["unix:///run/docker.sock"], "builder": {"Entitlements": {"security-insecure": true}} }' > /etc/docker/daemon.json && \
-    sed -i 's|-H fd:// ||' /lib/systemd/system/docker.service && \
-    wget -O /etc/docker/seccomp.json https://raw.githubusercontent.com/moby/moby/master/profiles/seccomp/default.json
+RUN <<EOF
+curl -fsSL https://get.docker.com | VERSION=27.5.1 sh
+sed -i 's|-H fd:// ||' /lib/systemd/system/docker.service
+EOF
 
-RUN cd /tmp && \
-    wget -O awscliv2.zip "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" && \
-    unzip awscliv2.zip && \
-    ./aws/install && \
-    rm -rf awscliv2.zip aws
+COPY etc/docker/daemon*.json /tmp/
+RUN cp /tmp/daemon.json /etc/docker/daemon.json
 
-RUN git clone --branch 3.6.0 https://github.com/CTFd/CTFd /opt/CTFd
+ADD https://raw.githubusercontent.com/moby/profiles/master/seccomp/default.json /etc/docker/seccomp.json
 
-RUN ln -s /opt/pwn.college/etc/systemd/system/pwn.college.service /etc/systemd/system/pwn.college.service && \
-    ln -s /opt/pwn.college/etc/systemd/system/pwn.college.backup.service /etc/systemd/system/pwn.college.backup.service && \
-    ln -s /opt/pwn.college/etc/systemd/system/pwn.college.backup.timer /etc/systemd/system/pwn.college.backup.timer && \
-    ln -s /opt/pwn.college/etc/systemd/system/pwn.college.cachewarmer.service /etc/systemd/system/pwn.college.cachewarmer.service && \
-    ln -s /opt/pwn.college/etc/systemd/system/pwn.college.cachewarmer.timer /etc/systemd/system/pwn.college.cachewarmer.timer && \
-    ln -s /opt/pwn.college/etc/systemd/system/pwn.college.cloud.backup.service /etc/systemd/system/pwn.college.cloud.backup.service && \
-    ln -s /opt/pwn.college/etc/systemd/system/pwn.college.cloud.backup.timer /etc/systemd/system/pwn.college.cloud.backup.timer && \
-    ln -s /etc/systemd/system/pwn.college.service /etc/systemd/system/multi-user.target.wants/pwn.college.service && \
-    ln -s /etc/systemd/system/pwn.college.backup.timer /etc/systemd/system/timers.target.wants/pwn.college.backup.timer && \
-    ln -s /etc/systemd/system/pwn.college.cachewarmer.timer /etc/systemd/system/timers.target.wants/pwn.college.cachewarmer.timer && \
-    ln -s /etc/systemd/system/pwn.college.cloud.backup.timer /etc/systemd/system/timers.target.wants/pwn.college.cloud.backup.timer
+RUN <<EOF
+KATA_VERSION=3.19.1
+curl -L https://github.com/kata-containers/kata-containers/releases/download/${KATA_VERSION}/kata-static-${KATA_VERSION}-amd64.tar.xz | tar -xJ --strip-components=2 -C /opt
+ln -s /opt/kata/bin/containerd-shim-kata-v2 /usr/local/bin/containerd-shim-kata-v2
+EOF
+
+COPY --from=kata-builder /usr/share/kata-containers/vmlinux.container /opt/kata/share/kata-containers/vmlinux.container
+
+RUN <<EOF
+cd /tmp
+wget -O aws.zip "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+unzip aws.zip
+./aws/install
+rm -rf aws.zip aws
+EOF
+
+ADD https://github.com/CTFd/CTFd.git#3.6.0 /opt/CTFd
+COPY ./ctfd/.coveragerc /opt/CTFd
+
+COPY <<EOF /etc/fstab
+shm /dev/shm tmpfs defaults,nosuid,nodev,noexec,size=50% 0 0
+tmpfs /run/dojo tmpfs defaults,mode=755,shared 0 0
+/data/homes /run/homefs none defaults,bind,nosuid 0 0
+EOF
+
+COPY <<EOF /etc/sysctl.d/90-dojo.conf
+fs.inotify.max_user_instances = 8192
+fs.inotify.max_user_watches = 1048576
+kernel.pty.max = 1048576
+kernel.core_pattern = core
+kernel.apparmor_restrict_unprivileged_userns = 0
+EOF
 
 WORKDIR /opt/pwn.college
 COPY . .
 
-RUN find /opt/pwn.college/dojo -type f -exec ln -s {} /usr/bin/ \;
+RUN find /opt/pwn.college/ctfd/patches -exec patch -d /opt/CTFd -p1 -N -i {} \;
+
+RUN <<EOF
+find /opt/pwn.college/etc/systemd/system -type f -exec ln -s {} /etc/systemd/system/ \;
+find /opt/pwn.college/etc/systemd/system -type f -name '*.timer' -exec sh -c \
+    'ln -s "/etc/systemd/system/$(basename "{}")" "/etc/systemd/system/timers.target.wants/$(basename "{}")"' \;
+ln -s /opt/pwn.college/etc/systemd/system/pwn.college.service /etc/systemd/system/multi-user.target.wants/
+find /opt/pwn.college/dojo -type f -executable -exec ln -s {} /usr/local/bin/ \;
+EOF
 
 EXPOSE 22
 EXPOSE 80
 EXPOSE 443
+EXPOSE 8001
 CMD ["dojo", "init"]

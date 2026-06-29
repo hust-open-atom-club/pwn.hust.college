@@ -1,0 +1,218 @@
+name: DOJO CI
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: "42 06 * * *"
+jobs:
+  test:
+    name: "${{ matrix.mode }} DOJO Test"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        mode: [singlenode, multinode]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Host information
+        run: |
+          echo "::group::Host information"
+          echo "Hostname: $(hostname)"
+          echo "OS: $(lsb_release -d | cut -f2)"
+          echo "Kernel: $(uname -r)"
+          echo "Architecture: $(uname -m)"
+          echo "IP: $(hostname -I)"
+          echo "::endgroup::"
+          echo "::group::Repo"
+          pwd
+          git log </dev/null | head -n20
+          echo "::endgroup::"
+          echo "::group::df -h"
+          df -h
+          echo "::endgroup::"
+          echo "::group::free -h"
+          free -h
+          echo "::endgroup::"
+          echo "::group::lscpu"
+          lscpu
+          echo "::endgroup::"
+          echo "::group::docker images"
+          docker images
+          echo "::endgroup::"
+
+      - name: Set cache mode
+        run: |
+          if [ "${{ matrix.mode }}" = "singlenode" ] && \
+             { [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; }; then
+            echo "SAVE_CACHE=yes" >> "$GITHUB_ENV"
+          else
+            echo "LOAD_CACHE=yes" >> "$GITHUB_ENV"
+            sudo chown $USER:$USER /mnt
+          fi
+
+      - name: Restore docker and workspace cache
+        if: env.LOAD_CACHE == 'yes'
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            /mnt/cache.img
+          key: dojo-cache-${{ matrix.mode }}-${{ github.run_id }}
+          restore-keys: |
+            dojo-cache-
+
+      - name: Setup cache filesystem
+        run: |
+          sudo chown root:root /mnt
+          set -x
+          df -h
+          sudo mkdir -p /mnt/cache
+          sudo mkdir -p /mnt/data
+          if [ ! -e /mnt/cache.img ]; then
+            sudo fallocate -l 9.8G /mnt/cache.img
+            sudo mkfs.btrfs -L cache /mnt/cache.img
+          fi
+
+          if [ "$SAVE_CACHE" != "yes" ]; then
+            sudo truncate -s +20G /mnt/cache.img
+          fi
+
+          sudo mount -o loop,compress=zstd:9 /mnt/cache.img /mnt/cache
+          sudo btrfs filesystem resize max /mnt/cache
+
+          sudo chown $USER:$USER /mnt/cache
+          sudo chown $USER:$USER /mnt/data
+          mkdir -p /mnt/cache/dojo-image
+          mkdir -p /mnt/cache/test-image
+          mkdir -p /mnt/data/docker
+          mkdir -p /mnt/data/workspace
+          if [ "${{ matrix.mode }}" = "multinode" ]; then
+            sudo rm -rf /mnt/data/docker-node1 /mnt/data/docker-node2
+            sudo cp -a /mnt/data/docker /mnt/data/docker-node1
+            sudo cp -a /mnt/data/docker /mnt/data/docker-node2
+          fi
+
+      - name: Set up Docker storage
+        run: |
+          echo "::group::Current disk usage"
+          df -h
+          echo "::endgroup::"
+          sudo systemctl stop docker
+          sudo rm -rf /var/lib/docker
+          sudo mkdir -p /mnt/docker
+          sudo ln -s /mnt/docker /var/lib/docker
+          sudo systemctl start docker
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build outer docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          tags: pwncollege/dojo
+          load: true
+          cache-from: type=local,src=/mnt/cache/dojo-image
+          cache-to: type=local,dest=/mnt/cache/dojo-image,mode=max
+
+      - name: Build test docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: test
+          tags: dojo-test
+          load: true
+          cache-from: type=local,src=/mnt/cache/test-image
+          cache-to: type=local,dest=/mnt/cache/test-image,mode=max
+
+      - name: Start the dojo in ${{ matrix.mode }} mode
+        timeout-minutes: 15
+        run: |
+          ./deploy.sh -g -D /mnt/data/docker -W /mnt/data/workspace ${{ matrix.mode == 'multinode' && '-M' || '' }} -C
+
+      - name: Run ${{ matrix.mode }} dojo tests
+        timeout-minutes: 15
+        run: |
+          ./deploy.sh -g -D /mnt/data/docker -W /mnt/data/workspace ${{ matrix.mode == 'multinode' && '-M' || '' }} -C -N -t
+
+      - name: Upload coverage reports to Codecov
+        if: matrix.mode == 'singlenode'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Output logs
+        if: always()
+        run: |
+          echo "::group::Host docker ps"
+          docker ps
+          echo "::endgroup::"
+          echo "::group::Host logs"
+          journalctl -u '*' -b
+          echo "::endgroup::"
+          echo "::group::Main node systemd logs"
+          docker exec dojo journalctl -u '*' -b || echo "No main outer container..."
+          echo "::endgroup::"
+          echo "::group::Main node compose logs"
+          docker exec dojo dojo compose logs || echo "No main outer container..."
+          echo "::endgroup::"
+          if [ "${{ matrix.mode }}" = "multinode" ]; then
+            echo "::group::Workspace node 1 systemd logs"
+            docker exec dojo-node1 journalctl -u '*' -b || echo "No node1 outer container..."
+            echo "::endgroup::"
+            echo "::group::Workspace node 1 compose logs"
+            docker exec dojo-node1 dojo compose logs || echo "No node1 outer container..."
+            echo "::endgroup::"
+            echo "::group::Workspace node 2 systemd logs"
+            docker exec dojo-node2 journalctl -u '*' -b || echo "No node2 outer container..."
+            echo "::endgroup::"
+            echo "::group::Workspace node 2 compose logs"
+            docker exec dojo-node2 dojo compose logs || echo "No node2 outer container..."
+            echo "::endgroup::"
+          fi
+
+      - name: Prepare the cache
+        if: env.SAVE_CACHE == 'yes'
+        run: |
+          ./deploy.sh -K -g
+          df -h
+          sudo umount /mnt/cache
+          du -sm /mnt/cache.img
+
+      - name: Save docker and workspace cache
+        if: env.SAVE_CACHE == 'yes'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            /mnt/cache.img
+          key: dojo-cache-${{ matrix.mode }}-${{ github.run_id }}
+
+      - name: Final filesystem information
+        if: always()
+        run: |
+          echo "::group::Filesystem"
+          df -h
+          echo "::endgroup::"
+
+  upload:
+    name: Upload Artifacts
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: pwncollege/dojo:latest

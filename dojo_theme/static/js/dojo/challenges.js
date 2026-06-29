@@ -2,23 +2,23 @@ function submitChallenge(event) {
     event.preventDefault();
     const item = $(event.currentTarget).closest(".accordion-item");
     const challenge_id = parseInt(item.find('#challenge-id').val())
-    const submission = item.find('#challenge-input').val()
+    const answer_input = item.find("#challenge-input");
+    const submission = answer_input.val()
 
-    item.find("#challenge-submit").addClass("disabled-button");
-    item.find("#challenge-submit").prop("disabled", true);
-
-    var body = {
-        'challenge_id': challenge_id,
-        'submission': submission,
+    const flag_regex = /pwn.college{.*}/;
+    if (submission.match(flag_regex) == null) {
+        return;
     }
-    var params = {}
+
+    answer_input.prop("disabled", true);
 
     if (submission == "pwn.college{practice}") {
-        return renderSubmissionResponse({ "data": { "status": "practice", "message": "You have submitted the \"practice\" flag from launching the challenge in Practice mode! This flag is not valid for scoring. Run the challenge in non-practice mode by pressing Start above, then use your solution to get the \"real\" flag and submit it!" } }, item);
+        var message = "This is the practice flag! Find the real flag by pressing the Start button above to launch the challenge in unprivileged mode."
+        return renderSubmissionResponse({"data": {"status": "practice", "message": message}}, item);
     }
-    return CTFd.api.post_challenge_attempt(params, body).then(function (response) {
-        return renderSubmissionResponse(response, item);
-    })
+
+    return CTFd.api.post_challenge_attempt({}, {"challenge_id": challenge_id, "submission": submission})
+        .then(response => renderSubmissionResponse(response, item));
 };
 
 function renderSubmissionResponse(response, item) {
@@ -29,6 +29,10 @@ function renderSubmissionResponse(response, item) {
     const answer_input = item.find("#challenge-input");
     const unsolved_flag = item.find(".challenge-unsolved");
     const total_solves = item.find(".total-solves");
+
+    const header = item.find('[id^="challenges-header-"]');
+    const current_challenge_id = parseInt(header.attr('id').match(/(\d+)$/)[1]);
+    const next_challenge_button = $(`#challenges-header-button-${current_challenge_id + 1}`);
 
     result_notification.removeClass();
     result_message.text(result.message);
@@ -74,6 +78,10 @@ function renderSubmissionResponse(response, item) {
 
         unsolved_flag.removeClass("challenge-unsolved");
         unsolved_flag.addClass("challenge-solved");
+        if(unsolved_flag.hasClass("far") && unsolved_flag.hasClass("fa-flag")) {
+            unsolved_flag.removeClass("far")
+            unsolved_flag.addClass("fas")
+        }
 
         total_solves.text(
             (parseInt(total_solves.text().trim().split(" ")[0]) + 1) + " solves"
@@ -82,6 +90,34 @@ function renderSubmissionResponse(response, item) {
         answer_input.val("");
         answer_input.removeClass("wrong");
         answer_input.addClass("correct");
+        const challenge_name = item.find('#challenge').val()
+        const module_name = item.find('#module').val()
+        const dojo_name = init.dojo
+
+        const survey_notification = item.find("#survey-notification")
+
+        CTFd.fetch(`/pwncollege_api/v1/dojos/${dojo_name}/${module_name}/${challenge_name}/surveys`, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        }).then(function (response) {
+            if(response.status != 200) return Promise.reject()
+            return response.json()
+        }).then(function (data) {
+            if(data.type === "none") return
+            if(Math.random() > data.probability) return
+            survey_notification.addClass(
+                "alert-warning alert-dismissable"
+            );
+            survey_notification.slideDown();
+        })
+        unlockChallenge(next_challenge_button);
+        checkUserAwards()
+        .then(handleAwardPopup)
+        .catch(error => console.error("Award check failed:", error));
     } else if (result.status === "already_solved") {
         // Challenge already solved
         result_notification.addClass(
@@ -110,9 +146,26 @@ function renderSubmissionResponse(response, item) {
     }
     setTimeout(function() {
         item.find(".alert").slideUp();
-        item.find("#challenge-submit").removeClass("disabled-button");
-        item.find("#challenge-submit").prop("disabled", false);
+        answer_input.prop("disabled", false);
     }, 10000);
+}
+
+function unlockChallenge(challenge_button) {
+    if (challenge_button.length && challenge_button.hasClass('disabled')) {
+        challenge_button.removeClass('disabled');
+        const icon = challenge_button.find('.fa-lock');
+        icon.removeClass('fa-lock');
+        icon.addClass('fa-flag');
+
+        const item = challenge_button.closest(".accordion-item");
+        const module_id = item.find("#module").val();
+        const challenge_id = item.find("#challenge").val();
+        const description = item.find(".challenge-description");
+
+        CTFd.fetch(`/pwncollege_api/v1/dojos/${init.dojo}/${module_id}/${challenge_id}/description`)
+            .then(response => response.json())
+            .then(data => description.html(data.description));
+    }
 }
 
 
@@ -121,12 +174,11 @@ function startChallenge(event) {
     const item = $(event.currentTarget).closest(".accordion-item");
     const module = item.find("#module").val()
     const challenge = item.find("#challenge").val()
-    const practice = event.currentTarget.id == "challenge-practice";
+    const practice = event.currentTarget.id == "challenge-priv";
 
-    item.find("#challenge-start").addClass("disabled-button");
-    item.find("#challenge-start").prop("disabled", true);
-    item.find("#challenge-practice").addClass("disabled-button");
-    item.find("#challenge-practice").prop("disabled", true);
+    item.find(".challenge-init")
+        .addClass("disabled-button")
+        .prop("disabled", true);
 
     var params = {
         "dojo": init.dojo,
@@ -189,34 +241,44 @@ function startChallenge(event) {
         result_notification.removeClass();
 
         if (result.success) {
-            var message = `Challenge successfully started! You can interact with it through a <a href="/workspace/code" target="dojo_workspace">VSCode Workspace</a> or a <a href="/workspace/desktop" target="dojo_workspace">GUI Desktop Workspace</a>.`;
+            var message = "Challenge successfully started!";
             result_message.html(message);
             result_notification.addClass('alert alert-info alert-dismissable text-center');
 
             $(".challenge-active").removeClass("challenge-active");
             item.find(".challenge-name").addClass("challenge-active");
-            setTimeout(() => updateNavbarDropdown(), 1000);
         }
         else {
-            var message = "";
-            message += "Error:";
-            message += "<br>";
-            message += "<code>" + result.error + "</code>";
-            message += "<br>";
+            var message = "Error:<br><code>" + result.error + "</code><br>"
             result_message.html(message);
             result_notification.addClass('alert alert-warning alert-dismissable text-center');
         }
 
         result_notification.slideDown();
-        item.find("#challenge-start").removeClass("disabled-button");
-        item.find("#challenge-start").prop("disabled", false);
-        item.find("#challenge-practice").removeClass("disabled-button");
-        item.find("#challenge-practice").prop("disabled", false);
+        item.find(".challenge-init")
+            .removeClass("disabled-button")
+            .prop("disabled", false);
+
+        $(".challenge-init").removeClass("challenge-hidden");
+        $(".challenge-workspace").addClass("challenge-hidden");
+        $(".iframe-wrapper").html("");
+        if (result.success) {
+            item.find(".iframe-wrapper").html("<iframe id=\"workspace-iframe\" class=\"challenge-iframe\" src=\"\" allow=\"clipboard-read *; clipboard-write *\"></iframe>");
+            loadWorkspace();
+            item.find(".challenge-init").addClass("challenge-hidden");
+            item.find(".challenge-workspace").removeClass("challenge-hidden");
+            item.find("#workspace-change-privilege")
+                .attr("title", practice ? "Restart unprivileged" : "Restart privileged")
+                .attr("data-privileged", practice)
+                .find(".fas")
+                    .toggleClass("fa-lock", !practice)
+                    .toggleClass("fa-unlock", practice);
+            windowResizeCallback("");
+            moduleStartChallenge(event, channel);
+        }
 
         setTimeout(function() {
             item.find(".alert").slideUp();
-            item.find("#challenge-submit").removeClass("disabled-button");
-            item.find("#challenge-submit").prop("disabled", false);
         }, 60000);
     }).catch(function (error) {
         console.error(error);
@@ -226,8 +288,147 @@ function startChallenge(event) {
     })
 }
 
+async function buildSurvey(item) {
+    const form = item.find("form#survey-notification")
+    if(form.html() === "") return
+
+    // fix styles
+    const challenge_id = item.find('#challenge-id').val()
+    for(const style of form.find("style")) {
+        let cssText = ""
+        for(const rule of style.sheet.cssRules) {
+            cssText += ".survey-id-" + challenge_id + " " + rule.cssText + " "
+        }
+        style.innerHTML = cssText
+    }
+
+    const customSubmits = item.find("[data-form-submit]")
+    customSubmits.each((_, element) => {
+        $(element).click(() => {
+            surveySubmit(
+                JSON.stringify({
+                    response: $(element).attr("data-form-submit")
+                }),
+                item
+            )
+            form.slideUp()
+        })
+    })
+    // csrf fix
+    const formData = new FormData(form[0])
+    form.submit(event => {
+        event.preventDefault()
+        surveySubmit(JSON.stringify(Object.fromEntries(formData)), item)
+        form.slideUp()
+    })
+}
+
+function surveySubmit(data, item) {
+    const challenge_name = item.find('#challenge').val()
+    const module_name = item.find('#module').val()
+    const dojo_name = init.dojo
+    return CTFd.fetch(`/pwncollege_api/v1/dojos/${dojo_name}/${module_name}/${challenge_name}/surveys`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
+        body: data
+    })
+}
+
+function markChallengeAsSolved(item) {
+    const unsolved_flag = item.find(".challenge-unsolved");
+    if (unsolved_flag.hasClass("challenge-solved")) {
+        return;
+    }
+
+    unsolved_flag.removeClass("challenge-unsolved");
+    unsolved_flag.addClass("challenge-solved");
+
+    const total_solves = item.find(".total-solves");
+    total_solves.text(
+        (parseInt(total_solves.text().trim().split(" ")[0]) + 1) + " solves"
+    );
+
+    const answer_input = item.find("#challenge-input");
+    answer_input.val("");
+    answer_input.removeClass("wrong");
+    answer_input.addClass("correct");
+
+    const header = item.find('[id^="challenges-header-"]');
+    const current_challenge_id = parseInt(header.attr('id').match(/(\d+)$/)[1]);
+    const next_challenge_button = $(`#challenges-header-button-${current_challenge_id + 1}`);
+
+    unlockChallenge(next_challenge_button);
+    checkUserAwards()
+        .then(handleAwardPopup)
+        .catch(error => console.error("Award check failed:", error));
+}
+
+var scroll_pos_x;
+var scroll_pos_y;
+
+function scrollDisable() {
+    scroll_pos_x = window.pageXOffset;
+    scroll_pos_y = window.pageYOffset;
+    document.body.classList.add("scroll-disabled");
+}
+
+function scrollRestore() {
+    document.body.classList.remove("scroll-disabled");
+    window.pageXOffset = scroll_pos_x;
+    window.pageYOffset = scroll_pos_y;
+}
+
+function contentExpand(event) {
+    $(event.target).closest(".challenge-workspace").addClass("workspace-fullscreen");
+    $(".challenge-iframe").addClass("challenge-iframe-fs");
+    scrollDisable();
+}
+
+function contentContract(event) {
+    $(event.target).closest(".challenge-workspace").removeClass("workspace-fullscreen");
+    $(".challenge-iframe").removeClass("challenge-iframe-fs");
+    scrollRestore();
+}
+
+function doFullscreen(event) {
+    if ($(".workspace-fullscreen")[0]) {
+        contentContract(event);
+    }
+    else {
+        contentExpand(event);
+    }
+}
+
+function windowResizeCallback(event) {
+    $(".challenge-iframe").not(".challenge-iframe-fs").css("aspect-ratio", `${window.innerWidth} / ${window.innerHeight}`);
+}
+
+function moduleStartChallenge(event, channel) {
+    root = $(event.target).closest(".accordion-item-body").find(".workspace-controls");
+    sendChallengeInfo(root, channel);
+}
 
 $(() => {
+    channel.addEventListener("message", (event) => {
+        var challenge_id = event.data["challenge-id"];
+        $(".workspace-controls").each((index, item) => {
+            item_chal_id = $(item).find("#current-challenge-id").prop("value");
+            if (item_chal_id == challenge_id) {
+                var priv = $(item).find("#workspace-change-privilege");
+                if (priv.length > 0) {
+                    priv.attr("data-privileged", event.data["challenge-privilege"]);
+                    displayPrivileged({"target": priv[0]}, false);
+                }
+
+                selectService($(item).find("#workspace-select").prop("value"), log=false);
+            }
+        })
+    });
+
     $(".accordion-item").on("show.bs.collapse", function (event) {
         $(event.currentTarget).find("iframe").each(function (i, iframe) {
             if ($(iframe).prop("src"))
@@ -238,14 +439,32 @@ $(() => {
         });
     });
 
-    $(".challenge-input").keyup(function (event) {
-        if (event.keyCode == 13) {
-            const submit = $(event.currentTarget).closest(".accordion-item").find("#challenge-submit");
-            submit.click();
+    const broadcast = new BroadcastChannel('broadcast');
+    broadcast.onmessage = (event) => {
+        if (event.data.msg === 'challengeSolved') {
+            const challenge_id = event.data.challenge_id;
+            const item = $(`input#challenge-id[value='${challenge_id}']`).closest(".accordion-item");
+            if (item.length) {
+                markChallengeAsSolved(item);
+            }
         }
-    });
+    };
 
-    $(".accordion-item").find("#challenge-submit").click(submitChallenge);
+    var submits = $(".accordion-item").find("#challenge-input");
+    for (var i = 0; i < submits.length; i++) {
+        submits[i].oninput = submitChallenge;
+        submits[i].onkeyup = function (event) {
+            if (event.key === "Enter") {
+                submitChallenge(event);
+            }
+        };
+    }
     $(".accordion-item").find("#challenge-start").click(startChallenge);
-    $(".accordion-item").find("#challenge-practice").click(startChallenge);
+    $(".challenge-init").find("#challenge-priv").click(startChallenge);
+
+    window.addEventListener("resize", windowResizeCallback, true);
+    windowResizeCallback("");
+    $(".accordion-item").each((_, item) => {
+        buildSurvey($(item))
+    })
 });

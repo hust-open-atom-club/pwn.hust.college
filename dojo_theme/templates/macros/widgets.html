@@ -6,7 +6,7 @@
   <a class="nav-link" href="{{ url }}" target="_blank">
   {% endif %}
     <span class="d-block" data-toggle="tooltip" data-placement="bottom" title="{{ name }}">
-      <i class="fas {{ icon }} d-none d-md-block d-lg-none"></i>
+      <i class="fas {{ icon }} d-none d-md-block d-lg-none" style="width: 20px"></i>
     </span>
     <span class="d-sm-block d-md-none d-lg-block text-nowrap">
       <i class="fas {{ icon }} pr-1"></i>
@@ -20,7 +20,7 @@
 </li>
 {% endmacro %}
 
-{% macro card(url, title=None, text_lines=None, icon=None, emoji=None, custom=False, solve_percent=0) -%}
+{% macro card(url, title=None, text_lines=None, icon=None, emoji=None, custom=False, solve_percent=0, course=False) -%}
   <a class="text-decoration-none" href="{{ url }}">
     <li class="card card-small">
       <div class="card-body">
@@ -33,33 +33,36 @@
         {% endif %}
         {% if text_lines %}<p class="card-text">{% for text in text_lines %}{{ text }}<br>{% endfor %}</p>{% endif %}
         {% if custom %}{{ caller() }}{% endif %}
-        <div class="progress-bar" style="width:{{solve_percent}}%">
+        {% if not course %}
+        <div class="progress-bar" style="width: {{solve_percent}}%">
           {% if solve_percent != 0 %}
             <span class="progress-bar-text">{{solve_percent|round(0, 'floor')|int}}%</span>
           {% endif %}
         </div>
+        {% endif %}
       </div>
     </li>
   </a>
 {%- endmacro %}
 
-{% macro accordion_item(accordion_id, item_id) %}
+{% macro accordion_item(accordion_id, item_id, is_disabled, challenge_index=None) %}
   <div class="accordion-item">
     <div class="accordion-item-header" id="{{ accordion_id }}-header-{{ item_id }}">
-      <h2 class="mb-0">
-        <button id="{{ accordion_id }}-header-button-{{ item_id }}" class="btn btn-link text-decoration-none w-100 collapsed" type="button" data-toggle="collapse" data-target="#{{ accordion_id }}-body-{{ item_id }}" aria-expanded="false" aria-controls="{{ accordion_id }}-body-{{ item_id }}">
+      <h2 class="mb-0 button-wrapper">
+        <button id="{% if challenge_index %}challenges-header-button-{{ challenge_index }}{% else %}{{ accordion_id }}-header-button-{{ item_id }}{% endif %}" class="btn btn-link text-decoration-none w-100 challenge-button-2 collapsed {% if is_disabled %}disabled{% endif %}" type="button" data-toggle="collapse" data-target="#{% if challenge_index %}challenges-body-{{ challenge_index }}{% else %}{{ accordion_id }}-body-{{ item_id }}{% endif %}" aria-expanded="false" aria-controls="{% if challenge_index %}challenges-body-{{ challenge_index }}{% else %}{{ accordion_id }}-body-{{ item_id }}{% endif %}">
           {{ caller(True) }}
         </button>
       </h2>
     </div>
 
-    <div id="{{ accordion_id }}-body-{{ item_id }}" class="collapse" aria-labelledby="{{ accordion_id }}-header-{{ item_id }}" data-parent="#{{ accordion_id }}">
+    <div id="{% if challenge_index %}challenges-body-{{ challenge_index }}{% else %}{{ accordion_id }}-body-{{ item_id }}{% endif %}" class="collapse" aria-labelledby="{{ accordion_id }}-header-{{ item_id }}" data-parent="#{{ accordion_id }}">
       <div class="accordion-item-body">
         {{ caller(False) }}
       </div>
     </div>
   </div>
 {% endmacro %}
+
 
 {% set svg_add_icon %}
 <svg class="w-100 h-100">
@@ -74,19 +77,20 @@
 {% macro dojo_grid(dojos, dojo_container_counts, create_icon=None) -%}
   <ul class="card-list">
     {% for dojo, solves in dojos %}
-      {% set icon = "/themes/dojo_theme/static/img/dojo/{}.svg".format(dojo.award.belt) if (dojo.award.belt and dojo.official) else None %}
-      {% set solve_percent = (solves / dojo.challenges_count) * 100 if dojo.challenges_count else 0 %}
+      {% set icon = url_for("pwncollege_belts.view_belt", color=dojo.award.belt) if (dojo.award.belt and dojo.official) else None %}
+      {% set solve_percent = (solves / dojo.required_challenges_count) * 100 if dojo.required_challenges_count else 0 %}
       {{ card(
         url_for("pwncollege_dojo.view_dojo", dojo=dojo.reference_id),
         title=dojo.name or dojo.id,
         text_lines=[
           "{} Hacking".format(dojo_container_counts.get(dojo.reference_id, 0)) if dojo_container_counts.get(dojo.reference_id, 0) else "",
           "{} Module{}".format(dojo.modules_count, "" if dojo.modules_count == 1 else "s"),
-          "{} Challenge{}".format(dojo.challenges_count, "" if dojo.challenges_count == 1 else "s"),
+          "{} Challenge{}".format(dojo.required_challenges_count, "" if dojo.required_challenges_count == 1 else "s"),
         ],
         icon=icon,
         emoji=dojo.award.emoji,
         solve_percent=solve_percent,
+        course=dojo.course,
       ) }}
     {% endfor %}
     {% if create_icon %}

@@ -1,24 +1,77 @@
 import collections
+import subprocess
+from pathlib import Path
+import logging
 import traceback
 import datetime
 import sys
+import re
 
-from flask import Blueprint, render_template, abort, send_file, redirect, url_for, Response, stream_with_context, request
+from flask import Blueprint, render_template, abort, send_file, redirect, url_for, Response, stream_with_context, request, g
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.sql import and_
+from sqlalchemy.sql import or_
 from CTFd.plugins import bypass_csrf_protection
 from CTFd.models import db, Solves, Users
 from CTFd.utils.decorators import authed_only
 from CTFd.utils.user import get_current_user, is_admin
 from CTFd.utils.helpers import get_infos
 
-from ..utils import get_all_containers, render_markdown
-from ..utils.stats import get_container_stats, get_dojo_stats
-from ..utils.dojo import dojo_route, get_current_dojo_challenge, get_prev_cur_next_dojo_challenge, dojo_update, dojo_admins_only
+from ..utils import get_current_container, get_all_containers, render_markdown
+from ..utils.stats import get_container_stats, get_dojo_stats, get_challenge_solves
+from ..utils.dojo import dojo_route, get_current_dojo_challenge, dojo_update, dojo_admins_only
+from ..utils.image_pulls import enqueue_dojo_image_pulls
+from ..utils.query_timer import query_timeout
 from ..models import Dojos, DojoUsers, DojoStudents, DojoModules, DojoMembers, DojoChallenges
 
 dojo = Blueprint("pwncollege_dojo", __name__)
 #pylint:disable=redefined-outer-name
+logger = logging.getLogger(__name__)
+
+def get_dojo_branch(dojo):
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=dojo.path,
+            capture_output=True,
+            text=True,
+            timeout=1
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+    return "main"
+
+def find_description_edit_url(dojo, relative_paths, search_pattern=None, branch="main"):
+    if not (dojo.official and dojo.repository):
+        return None
+
+    for relative_path in relative_paths:
+        full_path = dojo.path / relative_path
+
+        if not full_path.exists():
+            continue
+
+        line_num = 1
+        if relative_path.endswith('.yml') and search_pattern:
+            with open(full_path, 'r') as f:
+                content = f.read()
+            match = search_pattern.search(content)
+            if match:
+                line_num = content[:match.start()].count('\n') + 1
+
+        return f"https://github.com/{dojo.repository}/edit/{branch}/{relative_path}#L{line_num}"
+
+    return None
+
+
+def resolve_dojo_path(dojo, *parts):
+    base = dojo.path.resolve()
+    candidate = (dojo.path / Path(*parts)).resolve()
+    if not candidate.is_relative_to(base):
+        abort(404)
+    return candidate
 
 
 @dojo.route("/<dojo>")
@@ -36,6 +89,15 @@ def listing(dojo):
         if container["dojo"] == dojo.reference_id
     )
     stats["active"] = sum(module_container_counts.values())
+
+    description_edit_url = None
+    if dojo.description and dojo.path.exists():
+        description_edit_url = find_description_edit_url(
+            dojo, ["DESCRIPTION.md", "dojo.yml"],
+            search_pattern=re.compile(r"^description:"),
+            branch=get_dojo_branch(dojo)
+        )
+
     return render_template(
         "dojo.html",
         dojo=dojo,
@@ -45,63 +107,64 @@ def listing(dojo):
         infos=infos,
         awards=awards,
         module_container_counts=module_container_counts,
+        description_edit_url=description_edit_url,
     )
 
 
 @dojo.route("/<dojo>/<path>")
 @dojo.route("/<dojo>/<path>/")
+@dojo.route("/<dojo>/<path>/<subpath>")
+@dojo.route("/<dojo>/<path>/<subpath>/")
 @dojo_route
-def view_dojo_path(dojo, path):
+def view_dojo_path(dojo, path, subpath=None):
     module = DojoModules.query.filter_by(dojo=dojo, id=path).first()
     if module:
+        if subpath:
+            DojoChallenges.query.filter_by(dojo=dojo, module=module, id=subpath).first_or_404()
+            return view_module(dojo, module, scroll_to_challenge=subpath)
         return view_module(dojo, module)
-    elif path in dojo.pages:
+    elif path in dojo.pages and not subpath:
         return view_page(dojo, path)
     else:
         abort(404)
 
 
-@dojo.route("/active-module/")
 @dojo.route("/active-module")
+@dojo.route("/active-module/")
 @authed_only
 def active_module():
-    import json
-    user = get_current_user()
-    active = get_current_dojo_challenge()
-    challs = get_prev_cur_next_dojo_challenge(active=active)
-    if active:
-    #return a json of the active challenge
+    active_challenge = get_current_dojo_challenge()
+    if not active_challenge:
+        return {}
+
+    g.dojo = active_challenge.dojo
+
+    current_challenge = active_challenge
+    challenges = list(filter(lambda x: x.visible(), current_challenge.module.challenges))
+    current_index = challenges.index(current_challenge)
+
+    previous_challenge = challenges[current_index - 1] if current_index > 0 else None
+    next_challenge = challenges[current_index + 1] if current_index < (len(challenges) - 1) else None
+
+    def challenge_info(challenge):
+        if not challenge:
+            return {}
         return {
-            "c_previous": {
-                "module_name": challs['previous'].module.name ,
-                "module_id": challs['previous'].module.id,
-                "dojo_name": challs['previous'].dojo.name,
-                "dojo_reference_id": challs['previous'].dojo.reference_id,
-                "challenge_id": challs['previous'].challenge_id,
-                "challenge_name": challs['previous'].name,
-                "challenge_reference_id": challs['previous'].id,
-            } if challs['previous'] is not None else {},
-            "c_current": {
-                "module_name": challs['current'].module.name,
-                "module_id": challs['current'].module.id,
-                "dojo_name": challs['current'].dojo.name,
-                "dojo_reference_id": challs['current'].dojo.reference_id,
-                "challenge_id": challs['current'].challenge_id,
-                "challenge_name": challs['current'].name,
-                "challenge_reference_id": challs['current'].id,
-                "description": render_markdown(challs['current'].description).strip(),
-            },
-            "c_next": {
-                "module_name": challs['next'].module.name if challs['next'] else None,
-                "module_id": challs['next'].module.id,
-                "dojo_name": challs['next'].dojo.name,
-                "dojo_reference_id": challs['next'].dojo.reference_id,
-                "challenge_id": challs['next'].challenge_id,
-                "challenge_name": challs['next'].name,
-                "challenge_reference_id": challs['next'].id,
-            } if challs['next'] is not None else {},
+            "module_name": challenge.module.name,
+            "module_id": challenge.module.id,
+            "dojo_name": challenge.dojo.name,
+            "dojo_reference_id": challenge.dojo.reference_id,
+            "challenge_id": challenge.challenge_id,
+            "challenge_name": challenge.name,
+            "challenge_reference_id": challenge.id,
+            "description": render_markdown(challenge.description).strip() if challenge == current_challenge else None,
         }
-    return {}
+
+    return {
+        "c_previous": challenge_info(previous_challenge),
+        "c_current": challenge_info(current_challenge),
+        "c_next": challenge_info(next_challenge),
+    }
 
 
 @dojo.route("/dojo/<dojo>")
@@ -146,10 +209,43 @@ def update_dojo(dojo, update_code=None):
     try:
         dojo_update(dojo)
         db.session.commit()
+    except IntegrityError as e:
+        db.session.rollback()
+        error = str(e)
+        match = re.search(r"Key \(dojo_id, module_index, id\)=\(.*?,\s*(\d+),\s*([^\)]+)\)", error)
+
+        if not match:
+            print(f"ERROR: Dojo update failed with unparsed IntegrityError for {dojo}", file=sys.stderr, flush=True)
+            traceback.print_exc(file=sys.stderr)
+            return {"success": False, "error": "Database integrity error: A challenge ID is likely duplicated."}, 400
+
+        module_index_str, challenge_id = match.groups()
+        module_index = int(module_index_str)
+        challenge_id = challenge_id.strip()
+
+        if module_index >= len(dojo.modules):
+            print(f"ERROR: IntegrityError for {dojo} references out-of-bounds module_index {module_index}", file=sys.stderr, flush=True)
+            return {"success": False, "error": "Database integrity error: Inconsistent module data."}, 400
+
+        module = dojo.modules[module_index]
+        challenge = next((c for c in module.challenges if c.id == challenge_id), None)
+
+        module_name = module.name
+        challenge_name = challenge.name if challenge else challenge_id
+        error_message = f"Duplicate ID '{challenge_id}' used in module '{module_name}'."
+
+        return {"success": False, "error": error_message}, 400
+
     except Exception as e:
-        print(f"ERROR: Dojo failed for {dojo}", file=sys.stderr, flush=True)
+        db.session.rollback()
+        print(f"ERROR: Dojo update failed for {dojo}", file=sys.stderr, flush=True)
         traceback.print_exc(file=sys.stderr)
         return {"success": False, "error": str(e)}, 400
+
+    try:
+        enqueue_dojo_image_pulls(dojo)
+    except Exception as e:
+        logger.error(f"Failed to enqueue image pulls for {dojo.reference_id}: {e}", exc_info=True)
     return {"success": True}
 
 @dojo.route("/dojo/<dojo>/delete/", methods=["POST"])
@@ -223,11 +319,7 @@ def dojo_solves(dojo, solves_code=None, format="csv"):
     solves_query = (
         dojo
         .solves(ignore_visibility=True)
-        .join(DojoModules, and_(
-            DojoModules.dojo_id == DojoChallenges.dojo_id,
-            DojoModules.module_index == DojoChallenges.module_index
-        ))
-        .filter(DojoUsers.user_id != None)
+        .filter(or_(DojoUsers.user_id != None, ~Users.hidden))
         .order_by(DojoChallenges.module_index, DojoChallenges.challenge_index, Solves.date)
         .with_entities(Solves.user_id, Users.name, DojoModules.id, DojoChallenges.id, Solves.date)
     )
@@ -236,7 +328,7 @@ def dojo_solves(dojo, solves_code=None, format="csv"):
 
     if format == "csv":
         def stream():
-            yield "user_id,user_name,module,challenge,time\n"
+            yield "user_id,module,challenge,time\n"
             for user_id, _, module, challenge, time in solves:
                 yield f"{user_id},{module},{challenge},{time}\n"
         headers = {"Content-Disposition": "attachment; filename=data.csv"}
@@ -252,15 +344,20 @@ def dojo_solves(dojo, solves_code=None, format="csv"):
         return {"success": False, "error": "Invalid format"}, 400
 
 
-def view_module(dojo, module):
+def view_module(dojo, module, scroll_to_challenge=None):
     user = get_current_user()
     user_solves = set(solve.challenge_id for solve in (
         module.solves(user=user, ignore_visibility=True, ignore_admins=False) if user else []
     ))
-    total_solves = dict(module.solves()
-                        .group_by(Solves.challenge_id)
-                        .with_entities(Solves.challenge_id, db.func.count()))
-    current_dojo_challenge = get_current_dojo_challenge()
+    total_solves = get_challenge_solves(module)
+    if total_solves is None:
+        total_solves = dict(query_timeout(
+            module.solves().group_by(Solves.challenge_id).with_entities(Solves.challenge_id, db.func.count()).all,
+            5000,
+            []
+        ))
+    container = get_current_container()
+    practice = container.labels.get("dojo.mode") == "privileged" if container else False
 
     student = DojoStudents.query.filter_by(dojo=dojo, user=user).first()
     assessments = []
@@ -273,7 +370,8 @@ def view_module(dojo, module):
                 continue
             date = str(date)
             until = " ".join(
-                f"{count} {unit}{'s' if count != 1 else ''}" for count, unit in zip(
+                f"{count} {unit}{'s' if count != 1 else ''}"
+                for count, unit in zip(
                     (until.days, *divmod(until.seconds // 60, 60)),
                     ("day", "hour", "minute")
                 ) if count
@@ -290,39 +388,86 @@ def view_module(dojo, module):
         if container["module"] == module.id and container["dojo"] == dojo.reference_id
     )
 
+    module_description_edit_url = None
+    challenge_description_edit_urls = {}
+    resource_description_edit_urls = {}
+
+    if dojo.path.exists():
+        branch = get_dojo_branch(dojo)
+
+        if module.description:
+            module_description_edit_url = find_description_edit_url(dojo, [
+                f"{module.id}/DESCRIPTION.md",
+                f"{module.id}/module.yml",
+                "dojo.yml"
+            ], search_pattern=re.compile(r"^description:"), branch=branch)
+
+        for challenge in module.challenges:
+            if challenge.description:
+                # Search for "- id: challenge_name" with optional quotes
+                challenge_description_edit_urls[challenge.id] = find_description_edit_url(
+                    dojo, [
+                        f"{module.id}/{challenge.id}/DESCRIPTION.md",
+                        f"{module.id}/{challenge.id}/challenge.yml",
+                        f"{module.id}/module.yml",
+                        "dojo.yml"
+                    ], search_pattern=re.compile(rf"^\s*-?\s*id:\s*[\"']?{re.escape(challenge.id)}[\"']?"),
+                    branch=branch
+                )
+
+        for resource in module.resources:
+            if resource.type == "markdown":
+                # Search for "- name: Resource Name" with optional quotes
+                resource_description_edit_urls[resource.resource_index] = find_description_edit_url(
+                    dojo, [f"{module.id}/module.yml", "dojo.yml"],
+                    search_pattern=re.compile(rf"^\s*-?\s*name:\s*[\"']?{re.escape(resource.name)}[\"']?"),
+                    branch=branch
+                )
+
+    visible_challenges = set(module.visible_challenges())
+
     return render_template(
         "module.html",
         dojo=dojo,
         module=module,
-        challenges=module.visible_challenges(),
+        visible_challenges=visible_challenges,
         user_solves=user_solves,
         total_solves=total_solves,
         user=user,
-        current_dojo_challenge=current_dojo_challenge,
+        practice=practice,
         assessments=assessments,
         challenge_container_counts=challenge_container_counts,
+        module_description_edit_url=module_description_edit_url,
+        challenge_description_edit_urls=challenge_description_edit_urls,
+        resource_description_edit_urls=resource_description_edit_urls,
+        scroll_to_challenge=scroll_to_challenge,
     )
 
 
 def view_page(dojo, page):
-    if (dojo.path / page).is_file():
-        path = (dojo.path / page).resolve()
-        return send_file(path)
+    file_path = resolve_dojo_path(dojo, page)
+    if file_path.is_file():
+        assert dojo.privileged or dojo.official
+        return send_file(file_path)
 
-    elif (dojo.path / f"{page}.md").is_file():
-        content = render_markdown((dojo.path / f"{page}.md").read_text())
+    markdown_path = resolve_dojo_path(dojo, f"{page}.md")
+    if markdown_path.is_file():
+        content = render_markdown(markdown_path.read_text())
         return render_template("markdown.html", dojo=dojo, content=content)
 
-    elif (dojo.path / page).is_dir():
+    if file_path.is_dir():
         user = get_current_user()
-        if user and (dojo.path / page / f"{user.id}").is_file():
-            path = (dojo.path / page / f"{user.id}").resolve()
-            return send_file(path)
-        elif user and (dojo.path / page / f"{user.id}.md").is_file():
-            content = render_markdown((dojo.path / page / f"{user.id}.md").read_text())
+        user_path = resolve_dojo_path(dojo, page, f"{user.id}")
+        if user and user_path.is_file():
+            assert dojo.privileged or dojo.official
+            return send_file(user_path)
+        user_markdown_path = resolve_dojo_path(dojo, page, f"{user.id}.md")
+        if user and user_markdown_path.is_file():
+            content = render_markdown(user_markdown_path.read_text())
             return render_template("markdown.html", dojo=dojo, content=content)
-        elif (dojo.path / page / "default.md").is_file():
-            content = render_markdown((dojo.path / page / "default.md").read_text())
+        default_markdown_path = resolve_dojo_path(dojo, page, "default.md")
+        if default_markdown_path.is_file():
+            content = render_markdown(default_markdown_path.read_text())
             return render_template("markdown.html", dojo=dojo, content=content)
 
     abort(404)

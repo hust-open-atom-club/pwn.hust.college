@@ -1,17 +1,21 @@
+import datetime
 import hashlib
-import os
 import pathlib
-import re
 import logging
 import time
+import os
+import re
 
 import docker
 import docker.errors
 import docker.types
+import redis
+from .user import authed_only_cli, authed_only_ssh, CLI_AUTH_PREFIX
 from flask import abort, request, current_app
+from itsdangerous.url_safe import URLSafeTimedSerializer
 from flask_restx import Namespace, Resource
 from CTFd.cache import cache
-from CTFd.models import Users
+from CTFd.models import Users, Solves
 from CTFd.utils.user import get_current_user, is_admin
 from CTFd.utils.decorators import authed_only
 from CTFd.exceptions import UserNotFoundException, UserTokenExpiredException
@@ -24,10 +28,16 @@ from ...utils import (
     resolved_tar,
     serialize_user_flag,
     user_docker_client,
+    user_node,
     user_ipv4,
+    get_current_container,
+    is_challenge_locked,
 )
 from ...utils.dojo import dojo_accessible, get_current_dojo_challenge
 from ...utils.workspace import exec_run
+from ...utils.feed import publish_container_start
+from ...utils.background_stats import publish_stat_event
+from ...utils.request_logging import get_trace_id, log_generator_output
 
 logger = logging.getLogger(__name__)
 
@@ -45,16 +55,39 @@ def remove_container(user):
     known_image_name = cache.get(f"user_{user.id}-running-image")
     images = [None, known_image_name]
     for image_name in images:
+        docker_client = user_docker_client(user, image_name)
         try:
-            docker_client = user_docker_client(user, image_name)
             container = docker_client.containers.get(container_name(user))
             container.remove(force=True)
             container.wait(condition="removed")
-        except docker.errors.NotFound:
+        except (docker.errors.NotFound, docker.errors.APIError):
             pass
+        for volume in [f"{user.id}", f"{user.id}-overlay"]:
+            try:
+                docker_client.volumes.get(volume).remove()
+            except (docker.errors.NotFound, docker.errors.APIError):
+                pass
 
+def get_available_devices(docker_client):
+    key = f"devices-{docker_client.api.base_url}"
+    if (cached := cache.get(key)) is not None:
+        return cached
+    find_command = ["/bin/find", "/dev", "-type", "c"]
+    # When using certain logging drivers (like Splunk), docker.containers.run() returns None
+    # Use detach=True and logs() to capture output instead
+    container = docker_client.containers.run("busybox:uclibc", find_command, privileged=True, detach=True)
+    container.wait()
+    output = container.logs()
+    container.remove()
+    devices = output.decode().splitlines() if output else []
+    timeout = int(datetime.timedelta(days=1).total_seconds())
+    cache.set(key, devices, timeout=timeout)
+    return devices
 
-def start_container(docker_client, user, as_user, mounts, dojo_challenge, practice):
+def start_container(docker_client, user, as_user, user_mounts, dojo_challenge, practice):
+    resolved_dojo_challenge = dojo_challenge.resolve()
+
+    start_time = time.time()
     hostname = "~".join(
         (["practice"] if practice else [])
         + [
@@ -67,94 +100,100 @@ def start_container(docker_client, user, as_user, mounts, dojo_challenge, practi
         ]
     )[:64]
 
-    auth_token = os.urandom(32).hex()
+    auth_token = URLSafeTimedSerializer(current_app.config["SECRET_KEY"]).dumps(
+        [user.id, dojo_challenge.id, "cli-auth-token"]
+    )
+    auth_token = f"{CLI_AUTH_PREFIX}{auth_token}"
 
     challenge_bin_path = "/run/challenge/bin"
-    workspace_bin_path = "/run/workspace/bin"
     dojo_bin_path = "/run/dojo/bin"
-    image = docker_client.images.get(dojo_challenge.image)
+    image = docker_client.images.get(resolved_dojo_challenge.image)
     image_env = image.attrs["Config"].get("Env") or []
     image_path = next((env_var[len("PATH="):].split(":") for env_var in image_env if env_var.startswith("PATH=")), [])
-    env_path = ":".join([challenge_bin_path, workspace_bin_path, *image_path])
+    env_path = ":".join([challenge_bin_path, dojo_bin_path, *image_path])
 
-    devices = []
-    if os.path.exists("/dev/kvm"):
-        devices.append("/dev/kvm:/dev/kvm:rwm")
-    if os.path.exists("/dev/net/tun"):
-        devices.append("/dev/net/tun:/dev/net/tun:rwm")
+    mounts = [
+        docker.types.Mount(
+            "/nix",
+            f"{HOST_DATA_PATH}/workspace/nix",
+            "bind",
+            read_only=True,
+        ),
+        docker.types.Mount(
+            "/run/dojo/sys",
+            "/run/dojo/dojofs",
+            "bind",
+            read_only=True,
+            propagation="slave",
+        ),
+        *user_mounts,
+    ]
 
-        container = docker_client.containers.create(
-            dojo_challenge.image,
-            entrypoint=[
-                "/nix/var/nix/profiles/default/bin/dojo-init",
-                f"{dojo_bin_path}/sleep",
-                "6h",
-            ],
-            name=container_name(user),
-            hostname=hostname,
-            user="0",
-            working_dir="/home/hacker",
-            environment={
-                "HOME": "/home/hacker",
-                "PATH": env_path,
-                "SHELL": f"{dojo_bin_path}/bash",
-                "DOJO_AUTH_TOKEN": auth_token,
-                "DOJO_MODE": "privileged" if practice else "standard",
-            },
-            labels={
-                "dojo.dojo_id": dojo_challenge.dojo.reference_id,
-                "dojo.module_id": dojo_challenge.module.id,
-                "dojo.challenge_id": dojo_challenge.id,
-                "dojo.challenge_description": dojo_challenge.description,
-                "dojo.user_id": str(user.id),
-                "dojo.as_user_id": str(as_user.id),
-                "dojo.auth_token": auth_token,
-                "dojo.mode": "privileged" if practice else "standard",
-            },
-            mounts=[
-                docker.types.Mount(
-                    "/nix",
-                    f"{HOST_DATA_PATH}/workspace/nix",
-                    "bind",
-                    read_only=True,
-                ),
-                docker.types.Mount(
-                    "/run/workspace",
-                    f"{HOST_DATA_PATH}/workspacefs",
-                    "bind",
-                    read_only=True,
-                    propagation="shared",
-                ),
-            ]
-            + [
-                docker.types.Mount(
-                    str(target), str(source), "bind", propagation="shared", **(kwargs or {})
-                )
-                for target, source, kwargs in mounts
-            ],
-            devices=devices,
-            network=None,
-            extra_hosts={
-                hostname: "127.0.0.1",
-                "vm": "127.0.0.1",
-                f"vm_{hostname}"[:64]: "127.0.0.1",
-                "challenge.localhost": "127.0.0.1",
-                "hacker.localhost": "127.0.0.1",
-                "dojo-user": user_ipv4(user),
-                **USER_FIREWALL_ALLOWED,
-            },
-            init=True,
-            cap_add=["SYS_PTRACE"],
-            security_opt=[f"seccomp={SECCOMP}"],
-            sysctls={"net.ipv4.ip_unprivileged_port_start": 1024},
-            cpu_period=100000,
-            cpu_quota=400000,
-            pids_limit=1024,
-            mem_limit="4G",
-            detach=True,
-            stdin_open=True,
-            auto_remove=True,
-        )
+    allowed_devices = ["/dev/kvm", "/dev/net/tun"]
+    available_devices = set(get_available_devices(docker_client))
+    devices = [f"{device}:{device}:rwm" for device in allowed_devices if device in available_devices]
+
+    capabilities = ["SYS_PTRACE"]
+    if resolved_dojo_challenge.privileged:
+        capabilities.append("SYS_ADMIN")
+        if "workspace_net_admin" in resolved_dojo_challenge.dojo.permissions:
+            capabilities.append("NET_ADMIN")
+
+    container_create_attributes = dict(
+        image=resolved_dojo_challenge.image,
+        entrypoint=[
+            "/nix/var/nix/profiles/dojo-workspace/bin/dojo-init",
+            f"{dojo_bin_path}/sleep",
+            "6h",
+        ],
+        name=container_name(user),
+        hostname=hostname,
+        user="0",
+        working_dir="/home/hacker",
+        environment={
+            "HOME": "/home/hacker",
+            "PATH": env_path,
+            "SHELL": f"{dojo_bin_path}/bash",
+            "DOJO_AUTH_TOKEN": auth_token,
+        },
+        labels={
+            "dojo.dojo_id": dojo_challenge.dojo.reference_id,
+            "dojo.module_id": dojo_challenge.module.id,
+            "dojo.challenge_id": dojo_challenge.id,
+            "dojo.challenge_description": dojo_challenge.description,
+            "dojo.user_id": str(user.id),
+            "dojo.as_user_id": str(as_user.id),
+            "dojo.auth_token": auth_token,
+            "dojo.mode": "privileged" if practice else "standard",
+        },
+        mounts=mounts,
+        devices=devices,
+        network=None,
+        extra_hosts={
+            hostname: "127.0.0.1",
+            "vm": "127.0.0.1",
+            f"vm_{hostname}"[:64]: "127.0.0.1",
+            "challenge.localhost": "127.0.0.1",
+            "hacker.localhost": "127.0.0.1",
+            "dojo-user": user_ipv4(user),
+            "pwn.college": "192.168.42.1",
+            **USER_FIREWALL_ALLOWED,
+        },
+        init=True,
+        detach=True,
+        stdin_open=True,
+        auto_remove=True,
+        cpu_period=100000,
+        cpu_quota=400000,
+        pids_limit=1024,
+        mem_limit="4G",
+        runtime="io.containerd.run.kata.v2" if resolved_dojo_challenge.privileged else "runc",
+        cap_add=capabilities,
+        security_opt=[f"seccomp={SECCOMP}"],
+        sysctls={"net.ipv4.ip_unprivileged_port_start": 1024},
+    )
+
+    container = docker_client.containers.create(**container_create_attributes)
 
     workspace_net = docker_client.networks.get("workspace_net")
     workspace_net.connect(
@@ -169,7 +208,17 @@ def start_container(docker_client, user, as_user, mounts, dojo_challenge, practi
         default_network.disconnect(container)
 
     container.start()
-    cache.set(f"user_{user.id}-running-image", dojo_challenge.image, timeout=0)
+    logger.info(f"container started after {time.time()-start_time:.1f} seconds")
+    for message in log_generator_output(
+        "workspace initialization ", container.logs(stream=True, follow=True), start_time=start_time
+    ):
+        if b"DOJO_INIT_INITIALIZED" in message or message == b"Initialized.\n":
+            logger.info(f"workspace initialized after {time.time()-start_time:.1f} seconds")
+            break
+    else:
+        raise RuntimeError(f"Workspace failed to initialize after {time.time()-start_time:.1f} seconds.")
+
+    cache.set(f"user_{user.id}-running-image", resolved_dojo_challenge.image, timeout=0)
     return container
 
 
@@ -202,42 +251,76 @@ def insert_challenge(container, as_user, dojo_challenge):
         container.put_archive("/challenge", resolved_tar(option, root_dir=root_dir))
 
     exec_run(
-        "/run/dojo/bin/find /challenge/ -mindepth 1 -exec /run/dojo/bin/chown root:root {} \;", container=container
+        r"/run/dojo/bin/find /challenge/ -mindepth 1 -exec /run/dojo/bin/chown root:root {} \;", container=container
     )
-    exec_run("/run/dojo/bin/find /challenge/ -mindepth 1 -exec /run/dojo/bin/chmod 4755 {} \;", container=container)
+    exec_run(r"/run/dojo/bin/find /challenge/ -mindepth 1 -exec /run/dojo/bin/chmod 4755 {} \;", container=container)
 
 
 def insert_flag(container, flag):
     flag = f"pwn.college{{{flag}}}"
-    socket = container.attach_socket(params=dict(stdin=1, stream=1))
-    socket._sock.sendall(flag.encode() + b"\n")
-    socket.close()
+    if "localhost" in container.client.api.base_url:
+        socket = container.attach_socket(params=dict(stdin=1, stream=1))
+        socket._sock.sendall(flag.encode() + b"\n")
+        socket.close()
+    else:
+        ws = container.attach_socket(params=dict(stdin=1, stream=1), ws=True)
+        ws.send_text(f"{flag}\n")
+        ws.close()
 
 
 def start_challenge(user, dojo_challenge, practice, *, as_user=None):
-    as_user = as_user or user
     docker_client = user_docker_client(user, image_name=dojo_challenge.image)
+    node_id = user_node(user)
+    if node_id is None:
+        node_id = -1
+    logger.info(f"starting challenge dojo={
+        dojo_challenge.dojo.reference_id
+    } module={dojo_challenge.module.id} challenge={dojo_challenge.id} {practice=} {as_user=} node_id={node_id+1}")
     remove_container(user)
 
-    mounts = [("/home/hacker", HOST_HOMES_MOUNTS / str(as_user.id), None)]
-    if as_user != user:
-        mounts = [
-            # ("/home/hacker", HOST_HOMES_OVERLAYS / f"{user.id}-{as_user.id}"),
-            # ("/home/me", HOST_HOMES_MOUNTS / str(user.id), None),
-            ("/home/hacker", HOST_HOMES_MOUNTS / str(user.id), None),
-            ("/home/other", HOST_HOMES_MOUNTS / str(as_user.id), dict(read_only=True)),
-        ]
+    user_mounts = []
+    if as_user is None:
+        user_mounts.append(
+            docker.types.Mount(
+                "/home/hacker",
+                str(user.id),
+                "volume",
+                no_copy=True,
+                driver_config=docker.types.DriverConfig("homefs", options=dict(trace_id=get_trace_id())),
+            )
+        )
+    else:
+        user_mounts.extend([
+            docker.types.Mount(
+                "/home/hacker",
+                f"{user.id}-overlay",
+                "volume",
+                no_copy=True,
+                driver_config=docker.types.DriverConfig("homefs", options=dict(overlay=str(as_user.id), trace_id=get_trace_id())),
+            ),
+            docker.types.Mount(
+                "/home/me",
+                str(user.id),
+                "volume",
+                no_copy=True,
+                driver_config=docker.types.DriverConfig("homefs", options=dict(trace_id=get_trace_id())),
+            ),
+        ])
 
+    as_user = as_user or user
+
+    start_time = time.time()
     container = start_container(
         docker_client=docker_client,
         user=user,
         as_user=as_user,
-        mounts=mounts,
+        user_mounts=user_mounts,
         dojo_challenge=dojo_challenge,
         practice=practice,
     )
 
-    insert_challenge(container, as_user, dojo_challenge)
+    if dojo_challenge.path.exists() and not dojo_challenge.resolve().image.startswith("challenges.pwn.college/"):
+        insert_challenge(container, as_user, dojo_challenge)
 
     if practice:
         flag = "practice"
@@ -247,10 +330,101 @@ def start_challenge(user, dojo_challenge, practice, *, as_user=None):
         flag = serialize_user_flag(as_user.id, dojo_challenge.challenge_id)
     insert_flag(container, flag)
 
+    for message in log_generator_output(
+        "workspace readying ", container.logs(stream=True, follow=True), start_time=start_time
+    ):
+        if b"DOJO_INIT_READY" in message or message == b"Ready.\n":
+            logger.info(f"workspace ready after {time.time()-start_time:.1f} seconds")
+            break
+        if b"DOJO_INIT_FAILED:" in message:
+            cause = message.split(b"DOJO_INIT_FAILED:")[1].split(b"\n")[0]
+            raise RuntimeError(f"DOJO_INIT_FAILED: {cause}")
+    else:
+        raise RuntimeError(f"Workspace failed to become ready.")
+
+def docker_locked(func):
+    def wrapper(*args, **kwargs):
+        user = get_current_user()
+        redis_client = redis.from_url(current_app.config["REDIS_URL"])
+        try:
+            with redis_client.lock(f"user.{user.id}.docker.lock",
+                                   blocking_timeout=0,
+                                   timeout=20,
+                                   raise_on_release_error=False):
+                return func(*args, **kwargs)
+        except redis.exceptions.LockError:
+            return {"success": False, "error": "Already starting a challenge; try again in 20 seconds."}
+    return wrapper
+
+
+
+
+@docker_namespace.route("/next")
+class NextChallenge(Resource):
+    @authed_only
+    def get(self):
+        dojo_challenge = get_current_dojo_challenge()
+        if not dojo_challenge:
+            return {"success": False, "error": "No active challenge"}
+
+        user = get_current_user()
+
+        # Get all challenges in the current module
+        module_challenges = DojoChallenges.query.filter_by(
+            dojo_id=dojo_challenge.dojo_id,
+            module_index=dojo_challenge.module_index
+        ).order_by(DojoChallenges.challenge_index).all()
+
+        # Find the current challenge index
+        current_idx = next((i for i, c in enumerate(module_challenges) if c.challenge_index == dojo_challenge.challenge_index), None)
+
+        if current_idx is None:
+            return {"success": False, "error": "Current challenge not found in module"}
+
+        # Check if there's a next challenge in the current module
+        if current_idx + 1 < len(module_challenges):
+            next_challenge = module_challenges[current_idx + 1]
+            return {
+                "success": True,
+                "dojo": dojo_challenge.dojo.reference_id,
+                "module": next_challenge.module.id,
+                "challenge": next_challenge.id,
+                "challenge_index": next_challenge.challenge_index
+            }
+
+        # Check if there's a next module
+        next_module = DojoModules.query.filter_by(
+            dojo_id=dojo_challenge.dojo_id,
+            module_index=dojo_challenge.module_index + 1
+        ).first()
+
+        if next_module:
+            # Get the first challenge of the next module
+            first_challenge = DojoChallenges.query.filter_by(
+                dojo_id=dojo_challenge.dojo_id,
+                module_index=next_module.module_index
+            ).order_by(DojoChallenges.challenge_index).first()
+
+            if first_challenge:
+                return {
+                    "success": True,
+                    "dojo": dojo_challenge.dojo.reference_id,
+                    "module": first_challenge.module.id,
+                    "challenge": first_challenge.id,
+                    "challenge_index": first_challenge.challenge_index,
+                    "new_module": True
+                }
+
+        # No next challenge available
+        return {"success": False, "error": "No next challenge available"}
+
 
 @docker_namespace.route("")
 class RunDocker(Resource):
+    @authed_only_ssh
+    @authed_only_cli
     @authed_only
+    @docker_locked
     def post(self):
         data = request.get_json()
         dojo_id = data.get("dojo")
@@ -297,6 +471,12 @@ class RunDocker(Resource):
                 "error": "This challenge does not support practice mode.",
             }
 
+        if is_challenge_locked(dojo_challenge, user):
+            return {
+                "success": False,
+                "error": "This challenge is locked"
+            }
+
         if dojo.is_admin(user) and "as_user" in data:
             try:
                 as_user_id = int(data["as_user"])
@@ -312,29 +492,73 @@ class RunDocker(Resource):
                     return {"success": False, "error": f"Not an official student in this dojo ({as_user_id})"}
                 as_user = student.user
 
-        try:
+        max_attempts = 3
+        for attempt in range(1, max_attempts+1):
             try:
+                logger.info(f"Starting challenge for user {user.id} (attempt {attempt}/{max_attempts})...")
                 start_challenge(user, dojo_challenge, practice, as_user=as_user)
-            except (RuntimeError, docker.errors.APIError):
-                # just try a second time after a pause
-                time.sleep(5)
-                start_challenge(user, dojo_challenge, practice, as_user=as_user)
-        except RuntimeError as e:
-            logger.exception(f"ERROR: Docker failed for {user.id}:")
-            return {"success": False, "error": str(e)}
-        except Exception as e:
-            logger.exception(f"ERROR: Docker failed for {user.id}:")
+
+                if dojo.official or dojo.data.get("type") == "public":
+                    challenge_data = {
+                        "challenge_id": dojo_challenge.challenge_id,
+                        "challenge_name": dojo_challenge.name,
+                        "module_id": dojo_challenge.module.id if dojo_challenge.module else None,
+                        "module_name": dojo_challenge.module.name if dojo_challenge.module else None,
+                        "dojo_id": dojo.reference_id,
+                        "dojo_name": dojo.name
+                    }
+                    mode = "practice" if practice else "assessment"
+                    actual_user = as_user or user
+                    publish_container_start(actual_user, mode, challenge_data)
+
+                publish_stat_event("container_stats_update", {})
+
+                break
+            except Exception as e:
+                logger.warning(f"Attempt {attempt} failed for user {user.id} with error: {e}")
+                if attempt < max_attempts:
+                    logger.info(f"Retrying... ({attempt}/{max_attempts})")
+                    time.sleep(2)
+        else:
+            logger.error(f"ERROR: Docker failed for {user.id} after {max_attempts} attempts.")
             return {"success": False, "error": "Docker failed"}
+
         return {"success": True}
 
+    @authed_only_cli
     @authed_only
     def get(self):
         dojo_challenge = get_current_dojo_challenge()
         if not dojo_challenge:
             return {"success": False, "error": "No active challenge"}
+
+        user = get_current_user()
+        container = get_current_container(user)
+        if not container:
+            return {"success": False, "error": "No challenge container"}
+
+        practice = container.labels.get("dojo.mode") == "privileged"
+
         return {
             "success": True,
             "dojo": dojo_challenge.dojo.reference_id,
             "module": dojo_challenge.module.id,
             "challenge": dojo_challenge.id,
+            "practice" : practice,
         }
+
+    @authed_only
+    def delete(self):
+        user = get_current_user()
+        container = get_current_container(user)
+
+        if not container:
+            return {"success": False, "error": "No active challenge container"}
+
+        try:
+            remove_container(user)
+            publish_stat_event("container_stats_update", {})
+            return {"success": True, "message": "Challenge container terminated"}
+        except Exception as e:
+            logger.error(f"Failed to terminate container for user {user.id}: {e}")
+            return {"success": False, "error": "Failed to terminate container"}

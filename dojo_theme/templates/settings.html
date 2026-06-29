@@ -16,6 +16,7 @@
         <a class="nav-link" id="settings-discord-tab" data-toggle="pill" href="#discord" role="tab">Discord</a>
         {% endif %}
 	      <a class="nav-link" id="settings-tokens-tab" data-toggle="pill" href="#tokens" role="tab">Access Tokens</a>
+        <a class="nav-link" id="settings-reset-home-tab" data-toggle="pill" href="#reset-home" role="tab">Reset Home</a>
       </div>
     </div>
     <div class="col-md-8">
@@ -128,7 +129,10 @@
             <div class="form-group text-right">
               <input class="btn btn-md btn-primary btn-outlined" id="_submit" name="_submit" type="submit" value="Add">
             </div>
-          </form>
+          </form><b><label for="ssh-key-create">How To Create a SSH Key</label></b>
+          <p id="ssh-key-create">You can quickly generate an ssh key by running <code>ssh-keygen -f key -N ''</code> in a terminal on your (unix-friendly) host machine.
+          This will generate files <code>key</code> and <code>key.pub</code>, which are your private and public keys respectively.
+          Once you have linked your <em>public</em> ssh key to your account, you can connect to the dojo over ssh with <code>ssh -i key hacker@dojo.pwn.college</code>.</p>
         </div>
 
         {% if discord_enabled %}
@@ -194,6 +198,17 @@
           </table>
           {% endif %}
         </div>
+
+        <div class="tab-pane fade" id="reset-home" role="tabpanel">
+          <div class="text-center">
+            <h2>Reset Home Directory</h2>
+            <p>Click the button below to reset your home directory. This will zip your current home directory and wipe everything else.</p>
+            <button id="reset-home-button" class="btn btn-danger">Reset Home Directory</button>
+          </div>
+          <br>
+          <div id="reset-home-results" class="form-group"></div>
+        </div>
+
       </div>
     </div>
   </div>

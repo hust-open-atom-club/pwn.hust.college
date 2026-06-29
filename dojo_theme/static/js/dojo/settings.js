@@ -12,6 +12,13 @@ var success_template =
     '  <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button>\n' +
     '</div>';
 
+var loading_template =
+    '<div class="alert alert-warning alert-dismissable submit-row" role="alert">\n' +
+    '  <strong>Loading...</strong>\n' +
+    '  <span id="message"></span>' +
+    '  <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button>\n' +
+    '</div>';
+
 function form_fetch_and_show(name, endpoint, method, success_message, confirm_msg=null) {
     const form = $(`#${name}-form`);
     const results = $(`#${name}-results`);
@@ -20,6 +27,7 @@ function form_fetch_and_show(name, endpoint, method, success_message, confirm_ms
         results.empty();
         const params = form.serializeJSON();
         if (confirm_msg && !confirm(confirm_msg(form, params))) return;
+        results.html(loading_template);
         CTFd.fetch(endpoint, {
             method: method,
             credentials: "same-origin",
@@ -53,6 +61,7 @@ function button_fetch_and_show(name, endpoint, method,data, success_message, abo
             results.find("#message").html(abort_message);
             return
         };
+        results.html(loading_template);
         CTFd.fetch(endpoint, {
             method: method,
             credentials: "same-origin",
@@ -78,20 +87,23 @@ function button_fetch_and_show(name, endpoint, method,data, success_message, abo
 $(() => {
     form_fetch_and_show("ssh-key", "/pwncollege_api/v1/ssh_key", "POST", "Your public key has been updated");
     form_fetch_and_show("discord", "/pwncollege_api/v1/discord", "DELETE", "Your discord account has been disconnected");
-    form_fetch_and_show("dojo-create", "/pwncollege_api/v1/dojo/create", "POST", "Your dojo has been created");
-    form_fetch_and_show("dojo-promote-admin", `/pwncollege_api/v1/dojo/${init.dojo}/promote-admin`, "POST", "User has been promoted to admin.", confirm_msg = (form, params) => {
+    form_fetch_and_show("dojo-create", "/pwncollege_api/v1/dojos/create", "POST", "Your dojo has been created");
+    form_fetch_and_show("dojo-promote-admin", `/pwncollege_api/v1/dojos/${init.dojo}/admins/promote`, "POST", "User has been promoted to admin.", confirm_msg = (form, params) => {
         var user_name = form.find(`#name-for-${params["user_id"]}`)
         return `Promote ${user_name.text()} (UID ${params["user_id"]}) to admin?`;
     });
-    form_fetch_and_show("dojo-promote-dojo", `/pwncollege_api/v1/dojo/${init.dojo}/promote-dojo`, "POST", "Dojo has been made official!", confirm_msg = (form, params) => {
+    form_fetch_and_show("dojo-promote-dojo", `/pwncollege_api/v1/dojos/${init.dojo}/promote`, "POST", "Dojo has been made official!", confirm_msg = (form, params) => {
         return "Make this dojo official? Official dojos are accessible by their ID, without the hex differentiator, and show up in more dojo listings.";
     });
-    form_fetch_and_show("dojo-award-prune", `/pwncollege_api/v1/dojo/${init.dojo}/prune-awards`, "POST", "Legacy awards have been pruned.", confirm_msg = (form, params) => {
+    form_fetch_and_show("dojo-award-prune", `/pwncollege_api/v1/dojos/${init.dojo}/awards/prune`, "POST", "Legacy awards have been pruned.", confirm_msg = (form, params) => {
         return `Prune all awarded emoji based on updated completion requirements?`;
     });
     button_fetch_and_show("dojo-delete",  `/dojo/${init.dojo}/delete/`, "POST", {dojo: init.dojo} ,"Dojo has been deleted.", "Deletion has been canceled.", confirm_msg = (x)=> {
         var confirmation = prompt(`Are you sure you want to delete the dojo?\nEnter the dojo name\n\n${x.dojo}\n\nto confirm this action.\nThis action cannot be undone.`);
         return confirmation === x.dojo
+    });
+    button_fetch_and_show("reset-home", "/pwncollege_api/v1/workspace/reset_home", "POST", {}, "Home directory reset successfully", "Home directory reset canceled", function() {
+      return confirm("Are you sure you want to reset your home directory?");
     });
     $(".copy-button").click((event) => {
         let input = $(event.target).parents(".input-group").children("input")[0];

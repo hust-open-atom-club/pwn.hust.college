@@ -3,14 +3,15 @@
 {% block content %}
 <div class="jumbotron">
   <div class="container">
-    <h1>The Belted</h1>
+    <h1 class="brand-mono-bold wordmark-large"><span class="brand-white">pwn</span><span class="brand-dot brand-blink">.</span><span class="brand-green">belts</span></h1>
   </div>
 </div>
+
 <div class="container">
   <p>
   The hacker ethos goes beyond the acquisition of a satisfactory grade in a college course.
   A true hacker is never satisfied with the state of their knowledge.
-  They strive, or are irresistably driven towards, the achievement of absolute mastery of technical topics.
+  They strive, or are irresistibly driven towards, the achievement of absolute mastery of technical topics.
   </p>
 
   <p>
@@ -37,11 +38,11 @@
     {% endif %}
     </p>
 
-    <ul style="list-style-image: url({{ url_for("views.themes", path="img/dojo/" + belt_color + ".svg") }})">
+    <ul>
       {% for user_id in belt_data.ranks[belt_color] %}
       {% set user = belt_data.users[user_id] %}
       <li>
-        <a href="{{ url_for("pwncollege_users.view_other", user_id=user_id) }}"><raw>{{ user.handle }}</raw></a>
+        <a class="brand-mono" href="{{ url_for('pwncollege_users.view_other', user_id=user_id) }}">{{ user.handle }}</a>
         {% if user.name %}({{ user.name }}){% endif %}
         {% if user.emoji %}{{ user.emoji }}{% endif %}
         {% if user.site %}
@@ -67,7 +68,7 @@
 
   <h2>How to get on the above lists</h2>
   You, too, can be listed among the legends above.
-  You earn your belts by fully completing the appropriate <a href="{{url_for("pwncollege_dojos.listing")}}">pwn.college dojos</a>.
+  You earn your belts by fully completing the appropriate <a href="{{url_for('pwncollege_dojos.listing')}}">pwn.college dojos</a>.
   This takes skill, cunning, and perseverance, but you can do it.
   Good luck.
 </div>

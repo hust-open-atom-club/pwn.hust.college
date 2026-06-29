@@ -17,9 +17,18 @@ function loadScoreboard(duration, page) {
     $("#scoreboard-control-week").removeClass("scoreboard-page-selected");
     $("#scoreboard-control-month").removeClass("scoreboard-page-selected");
     $("#scoreboard-control-all").removeClass("scoreboard-page-selected");
-    if (duration == 7) $("#scoreboard-control-week").addClass("scoreboard-page-selected");
-    if (duration == 30) $("#scoreboard-control-month").addClass("scoreboard-page-selected");
-    if (duration == 0) $("#scoreboard-control-all").addClass("scoreboard-page-selected");
+    if (duration == 7) {
+        $("#scoreboard-control-week").addClass("scoreboard-page-selected");
+        $("#scoreboard-heading").text("7-Day Scoreboard:");
+    }
+    if (duration == 30) {
+        $("#scoreboard-control-month").addClass("scoreboard-page-selected");
+        $("#scoreboard-heading").text("30-Day Scoreboard:");
+    }
+    if (duration == 0) {
+        $("#scoreboard-control-all").addClass("scoreboard-page-selected");
+        $("#scoreboard-heading").text("All-Time Scoreboard:");
+    }
 
     CTFd.fetch(endpoint, {
         method: "GET",
@@ -48,7 +57,7 @@ function loadScoreboard(duration, page) {
                 <img src="${user.symbol}" class="scoreboard-symbol">
               </td>
               <td class="col-md-4">
-                <a href="${user.url}" class="scoreboard-name text-decoration-none">
+                <a href="${user.url}" class="scoreboard-name brand-mono">
                 </a>
               </td>
               <td class="scoreboard-completions col-md-4">
@@ -64,8 +73,9 @@ function loadScoreboard(duration, page) {
             user.badges.forEach(badge => {
                 if (!badge.url) badge.url = "#";
                 var count = badge.count <= 1 ? "" : `<sub>x${badge.count}</sub>`
+                var staleStyle = badge.stale ? 'style="opacity: 0.4; filter: grayscale(100%);"' : '';
                 row.find(".scoreboard-completions").append($(`
-                    <span title="${badge.text}">
+                    <span title="${badge.text}" ${staleStyle}>
                     <a href="${badge.url}">${badge.emoji}</a>${count}
                     </span><span> </span>
                 `));

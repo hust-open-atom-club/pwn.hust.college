@@ -1,42 +1,55 @@
 import hmac
+import os
 
-from flask import request, Blueprint, render_template, url_for, abort
+from flask import request, Blueprint, Response, render_template, abort
 from CTFd.models import Users
-from CTFd.utils.user import get_current_user, is_admin
+from CTFd.utils.user import get_current_user
 from CTFd.utils.decorators import authed_only
 from CTFd.plugins import bypass_csrf_protection
+from urllib.parse import urlencode
 
 from ..models import Dojos
-from ..utils import redirect_user_socket, get_current_container, container_password
+from ..utils import user_ipv4, get_current_container, container_password
 from ..utils.dojo import get_current_dojo_challenge
-from ..utils.workspace import exec_run, start_on_demand_service
 
 
 workspace = Blueprint("pwncollege_workspace", __name__)
 port_names = {
     "challenge": 80,
+    "terminal": 7681,
     "code": 8080,
     "desktop": 6080,
     "desktop-windows": 6082,
 }
 
 
-@workspace.route("/workspace/<service>")
+@workspace.route("/workspace", methods=["GET"])
 @authed_only
-def view_workspace(service):
-    return render_template("workspace.html", iframe_name="workspace", service=service)
+def view_workspace():
 
-@workspace.route("/workspace/<service>/", websocket=True)
-@workspace.route("/workspace/<service>/<path:service_path>", websocket=True)
-@workspace.route("/workspace/<service>/", methods=["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"])
-@workspace.route("/workspace/<service>/<path:service_path>", methods=["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"])
+    current_challenge = get_current_dojo_challenge()
+    if not current_challenge:
+        return render_template("error.html", error="No active challenge session; start a challenge!")
+
+    practice = get_current_container().labels.get("dojo.mode") == "privileged"
+
+    return render_template(
+        "workspace.html",
+        practice=practice,
+        challenge=current_challenge,
+    )
+
+@workspace.route("/workspace/<int:port>", strict_slashes=False)
 @authed_only
-@bypass_csrf_protection
-def forward_workspace(service, service_path=""):
-    prefix = f"/workspace/{service}/"
-    assert request.full_path.startswith(prefix)
-    service_path = request.full_path[len(prefix):]
+def view_workspace_port(port):
+    return render_template("workspace_port.html", iframe_name="workspace", port=port)
 
+@workspace.route("/workspace/<string:service>", strict_slashes=False)
+@authed_only
+def view_workspace_service(service):
+    return render_template("workspace_service.html", iframe_name="workspace", service=service)
+
+def forward_workspace(service, signature, message, service_path="", include_host=True, **kwargs):
     if service.count("~") == 0:
         service_name = service
         try:
@@ -78,8 +91,38 @@ def forward_workspace(service, service_path=""):
     else:
         abort(404)
 
+    return forward_port(
+        port,
+        signature,
+        message,
+        user,
+        service_path=service_path,
+        include_host=include_host,
+        **(kwargs or {})
+    )
+
+def forward_port(port, signature, message, user, service_path="", include_host=True, **kwargs):
     current_user = get_current_user()
     if user != current_user:
         print(f"User {current_user.id} is accessing User {user.id}'s workspace (port {port})", flush=True)
 
-    return redirect_user_socket(user, port, service_path)
+    workspace_host = os.environ.get("WORKSPACE_HOST")
+
+    if not workspace_host:
+        abort(500)
+        return
+
+    url = f"/workspace/{message}/{signature}/{port}/{service_path}"
+
+    scheme = request.scheme if request else "http"
+
+    if include_host:
+        url = f"{scheme}://{workspace_host}{url}"
+
+    params = dict(kwargs or {})
+
+    if params:
+        args = urlencode(params)
+        url = f"{url}?{args}"
+
+    return url

@@ -5,7 +5,6 @@ from flask import request, Blueprint, url_for, redirect, abort, current_app
 from sqlalchemy.exc import IntegrityError
 from itsdangerous.url_safe import URLSafeTimedSerializer
 from CTFd.models import db
-from CTFd.cache import cache
 from CTFd.utils.user import get_current_user
 from CTFd.utils.decorators import authed_only
 
@@ -49,14 +48,14 @@ def discord_redirect():
         abort(400)
 
     try:
-        redirect_user_id = discord_oauth_serializer.loads(state, max_age=60)
+        redirect_user_id = discord_oauth_serializer.loads(state, max_age=300)
         user = get_current_user()
         user_id = user.id
         assert user_id == redirect_user_id, (user_id, redirect_user_id)
         discord_id = get_discord_id(code)
     except Exception as e:
         print(f"ERROR: Discord redirect failed: {e}", file=sys.stderr, flush=True)
-        return {"success": False, "error": "Discord redirect failed"}, 400
+        return {"success": False, "error": "Discord redirect failed; OAuth may have taken too long, try again"}, 400
 
     try:
         existing_discord_user = DiscordUsers.query.filter_by(user_id=user_id).first()
@@ -66,8 +65,7 @@ def discord_redirect():
         else:
             existing_discord_user.discord_id = discord_id
         db.session.commit()
-        cache.delete_memoized(get_discord_member, user_id)
-        if get_discord_member(user_id):
+        if get_discord_member(discord_id):
             add_role(discord_id, "White Belt")
             update_awards(user)
     except IntegrityError:

@@ -1,75 +1,83 @@
 { pkgs }:
 
 let
-  pythonEnv = pkgs.python3.withPackages (ps: with ps; [
+  bata24-gef = import ./bata24-gef.nix { inherit pkgs; };
+  burpsuite = import ./burpsuite.nix { inherit pkgs; };
+  ghidra = import ./ghidra.nix { inherit pkgs; };
+  wireshark = import ./wireshark.nix { inherit pkgs; };
+
+  pythonPackages = ps: with ps; [
     angr
     asteval
     flask
     ipython
     jupyter
+    pillow
     psutil
     pwntools
     pycryptodome
+    pyroute2
     r2pipe
     requests
+    ropper
     scapy
     selenium
-  ]);
+  ];
 
-  ida-free = pkgs.ida-free.overrideAttrs (oldAttrs: {
-    # This patch fixes IDA free to make sure libssl is correctly loaded in order to use the decompiler; this should be removed once the issue is fixed upstream.
-    # https://github.com/NixOS/nixpkgs/blob/nixos-24.05/pkgs/by-name/id/ida-free/package.nix#L116
-    preInstall = ''
-    eval _"$(declare -f wrapProgram)"
-    wrapProgram() {
-      local program="$1"
-      shift
-      _wrapProgram \
-        "$program" \
-        --prefix LD_LIBRARY_PATH : ${pkgs.lib.getLib pkgs.openssl}/lib \
-        "$@"
-    }
-    '';
-  });
+  pythonEnv = pkgs.python3.withPackages pythonPackages;
+
+  tools = with pkgs; {
+    build = [ (lib.hiPrio gcc) (lib.lowPrio clang) clang-tools cmake gnumake nasm qemu rustup ];
+
+    cli-tools = [ atuin bat delta hexyl hyperfine navi sd zoxide ];
+
+    compress = [ gnutar gzip unzip zip ];
+
+    debug = [ bata24-gef gdb gef ltrace pwndbg strace ];
+
+    documentation = [ man-pages man-pages-posix ];
+
+    editor = [ emacs gedit nano neovim vim zed-editor.remote_server ];
+
+    exploit = [ aflplusplus rappel ropgadget sage ];
+
+    fetch = [ fastfetch neofetch ];
+
+    finder = [ broot dust eza fd fzf ripgrep ripgrep-all ];
+
+    lsp = [ ruff ty ];
+
+    network = [ burpsuite netcat-openbsd nmap tcpdump termshark tshark wireshark ];
+
+    reverse = [ angr-management binaryninja-free cutter file ghidra ida-free radare2 ];
+
+    shells = [ fish nushell oh-my-zsh starship zsh ];
+
+    system = [ bottom firejail htop landrun ncdu nftables openssh rsync ];
+
+    terminal = [ ghostty.terminfo kitty.terminfo screen tmux zellij ];
+
+    web = [ firefox geckodriver ];
+  };
 
 in
 {
-  packages = with pkgs; [
-    (lib.hiPrio pythonEnv)
-
-    gcc
-    gnumake
-
-    qemu
-
-    strace
-    gdb
-    pwndbg
-    gef
-    openssh
-    netcat-openbsd
-
-    vim
-    emacs
-
-    ghidra
-    ida-free
-    radare2
-    # TODO: angr-management
-    # TODO: binary-ninja
-
-    wireshark
-    nmap
-    tcpdump
-    firefox
-    geckodriver
-
-    aflplusplus
-    rappel
-    ropgadget
-
-    sage
-
-    # TODO: apt-tools
-  ];
+  packages = with pkgs;
+    [ (lib.hiPrio pythonEnv) ]
+    ++ tools.build
+    ++ tools.cli-tools
+    ++ tools.compress
+    ++ tools.debug
+    ++ tools.documentation
+    ++ tools.editor
+    ++ tools.exploit
+    ++ tools.fetch
+    ++ tools.finder
+    ++ tools.lsp
+    ++ tools.network
+    ++ tools.reverse
+    ++ tools.shells
+    ++ tools.system
+    ++ tools.terminal
+    ++ tools.web;
 }

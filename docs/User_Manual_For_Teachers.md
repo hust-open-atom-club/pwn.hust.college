@@ -1,6 +1,6 @@
 # pwn.hust.college 平台用户使用指南
 
-# 一、 概述
+## 一、 概述
 
 pwn.hust.college 平台用于实践网络空间安全，旨在最小化学生和教师的障碍。道馆借鉴了 Capture The Flag（CTF）社区的见解和灵感，该社区开创了使用实践挑战来教授网络空间安全概念的方式。道馆通过提供一个预配置的、功能齐全的学习环境来改进现有平台的可访问性和易用性，该环境可以从任何设备的浏览器进行访问。学生能够在浏览器中编写代码、与 shell 交互、探索复杂的网络配置、调试进程和内核模块等。教师可以轻松地将道馆部署到自己的服务器上，使用单个 docker 运行命令，并通过 git 仓库来管理挑战关卡。
 
@@ -84,9 +84,9 @@ pwn.hust.college 平台用于实践网络空间安全，旨在最小化学生和
 
 总的来说，道馆的设计理念是提供一个全面且易于使用的平台，不仅能提高学生的学习效率，还能让教师更高效地管理和指导学生。通过这些精心设计的功能，使之更加高效且易于接受和使用。
 
-![](static/TI7hbOlhDoNy8Jxgv6pcROaLn5e.png)
+![image](static/TI7hbOlhDoNy8Jxgv6pcROaLn5e.png)
 
-# 二、教师手册
+## 二、教师手册
 
 ## 2.1 道馆编写
 
@@ -197,33 +197,33 @@ resources:
 
 1. 点击最上方导航栏中的“道馆”，然后在页面最下方，点击如下所示添加道馆的图标。
 
-![](static/Z4a7bHIdXotSYzx97NRcFDBCnIb.png)
+![image](static/Z4a7bHIdXotSYzx97NRcFDBCnIb.png)
 
 1. 根据道馆仓库所在的托管平台，选择 Github 或 Gitee，并输入相应的仓库路径，如 hust-open-atom-club/example-dojo。若道馆仓库是开源的，即可点击 Create 按钮，创建道馆及其挑战关卡。反之，则需要在道馆仓库中添加如图所示的部署秘钥，详见 Github 或 Gitee 部署秘钥文档。
 
-![](static/NESzbol3HoOzZ4xeUysc9uNTnbb.png)
+![image](static/NESzbol3HoOzZ4xeUysc9uNTnbb.png)
 
 1. 创建成功之后，即可看见下图所示。同时，在道馆列表中看到该道馆。
 
-![](static/BkzWbyEcjo2XEdxbt8IciqWKnPh.png)
+![image](static/BkzWbyEcjo2XEdxbt8IciqWKnPh.png)
 
-![](static/WWIJbZTsRoPMPlxEaCycFdh0noc.png)
+![image](static/WWIJbZTsRoPMPlxEaCycFdh0noc.png)
 
 ## 2.3 道馆更新
 
 以管理员账号进入刚创建好的 Example 道馆，并点击进入管理员界面，
 
-![](static/IlNzbirx7oIlXnxwupFcQud8nah.png)
+![image](static/IlNzbirx7oIlXnxwupFcQud8nah.png)
 
 在管理员界面中，你可以通过“更新”按钮，使用最新的代码仓库。代码仓库可以通过代码提交的方式不断进行更新和迭代。
 
-![](static/F2sxb3c9BouF61xM1CIccquynWd.png)
+![image](static/F2sxb3c9BouF61xM1CIccquynWd.png)
 
-![](static/Bo3xbsbt1oUqpbxnD8ecWRmanKb.png)
+![image](static/Bo3xbsbt1oUqpbxnD8ecWRmanKb.png)
 
-# 三、学生手册
+## 三、学生手册
 
-欢迎来到[ pwn.hust.college](https://pwn.hust.college/) ，一个基于神奇宝贝动画设计的趣味教育平台。为助您获取 flag，成功闯关，下面将介绍道馆的注册、登录、使用细则，以及 vscode 工作空间，图形桌面工作空间，SSH 这三种与挑战关卡互动的方式。
+欢迎来到[pwn.hust.college](https://pwn.hust.college/) ，一个基于神奇宝贝动画设计的趣味教育平台。为助您获取 flag，成功闯关，下面将介绍道馆的注册、登录、使用细则，以及 vscode 工作空间，图形桌面工作空间，SSH 这三种与挑战关卡互动的方式。
 
 ## 3.1 道馆
 
@@ -233,13 +233,13 @@ resources:
 
 我们点击右上角统一身份认证，跳转到[智慧华中大](https://pass.hust.edu.cn/cas/login)。
 
-![](static/ABgvbYoMvoOmwWxZKFic2AOynwf.png)
+![image](static/ABgvbYoMvoOmwWxZKFic2AOynwf.png)
 
 输入自己的账号密码之后，会自动跳转 `DOJO`，即可成功登录平台。
 
-![](static/WF8tbZs8uoHHHSxYmgxcS8Esnju.png)
+![image](static/WF8tbZs8uoHHHSxYmgxcS8Esnju.png)
 
-![](static/QtFmb1ZceoOYhmxdRmFczeNenme.png)
+![image](static/QtFmb1ZceoOYhmxdRmFczeNenme.png)
 
 ### 3.1.2  道馆使用细则
 
@@ -247,17 +247,17 @@ resources:
 
 点击**入门篇**，可以看到道馆简介，道馆奖项，道馆状态，道馆模块以及道馆排名，点击道馆模块。
 
-![](static/T4mqbgLRnoY6VHxWjfdck3wSnQc.png)
+![image](static/T4mqbgLRnoY6VHxWjfdck3wSnQc.png)
 
 进入道馆模块后可以看到篇章内容简介，课程讲解与资料学习，和挑战关卡。完成每个挑战关卡后都可以获得相应的 flag，全部完成后即可获得徽章。
 
 开始挑战，点击名为工作空间的第一关：
 
-![](static/Ba3Ybj3vSoxjEmx3UG8czk3Tnvc.png)
+![image](static/Ba3Ybj3vSoxjEmx3UG8czk3Tnvc.png)
 
 点击 Start 按钮，当出现下方蓝色提示时意味着当前挑战关卡已经启动。
 
-![](static/BPZZb2ybgod2DyxQkAycjuZAnvf.png)
+![image](static/BPZZb2ybgod2DyxQkAycjuZAnvf.png)
 
 ## 3.2 VSCode 工作空间
 
@@ -265,39 +265,39 @@ resources:
 
 根据简介第一关将教你如何让使用 Visual Studio Code 工作空间，点击上方的工作空间或者下方蓝色提示中的 Vscode Workspace 均可进入。
 
-![](static/RfgAbpzWoo5pGDx2NXkc5yiLnpc.png)
+![image](static/RfgAbpzWoo5pGDx2NXkc5yiLnpc.png)
 
 进入工作空间后，根据提示要运行路径为/challenge/solve 的挑战程序。
 
 如果当前处在/home 目录中，请切换文件夹至/challenge 目录中。
 
-![](static/HwM8bwP0bo1MCdx1owGcIirfnSf.png)
+![image](static/HwM8bwP0bo1MCdx1owGcIirfnSf.png)
 
 填写/challenge，点击 ok 按钮切换。
 
-![](static/PrdMbU5NcoViozx7TJucI2vEn9f.png)
+![image](static/PrdMbU5NcoViozx7TJucI2vEn9f.png)
 
 切换到/challenge 目录下可以看到 DESCRIPTION 里面的提示以及我们需要运行的程序 solve，右键 solve 打开终端。
 
-![](static/TwC8b8fV2o0vQIxmqMTcb0Tbnic.png)
+![image](static/TwC8b8fV2o0vQIxmqMTcb0Tbnic.png)
 
 输入命令。/solve 运行可执行程序，可以获取 flag，复制 flag。
 
-![](static/XGnxbIB7JoRBwmxHjmLcA1VsnsA.png)
+![image](static/XGnxbIB7JoRBwmxHjmLcA1VsnsA.png)
 
 回到道馆，将 flag 粘贴至浅绿色框内，然后点击右侧 submit 提交，如果出现 correct 提示并且旗帜变成绿色说明 flag 正确，闯关成功。（注意：不同同学、每次挑战的 flag 都不一样）
 
-![](static/HNvDbIDNJoByrAx86mOcQ8vgn5c.png)
+![image](static/HNvDbIDNJoByrAx86mOcQ8vgn5c.png)
 
 ### 3.2.2 读取 flag
 
 运行第四关，打开工作空间，根据提示/flag 文件需要 root 用户才能访问。
 
-![](static/OcQXb1vLdonYH9xXdCrc5GxGnhe.png)
+![image](static/OcQXb1vLdonYH9xXdCrc5GxGnhe.png)
 
 先运行可执行文件让所有人都能读取 flag，使用命令 cat /flag 读取 flag。
 
-![](static/EhhgbbIBNozo8WxILaLcVp32nEd.png)
+![image](static/EhhgbbIBNozo8WxILaLcVp32nEd.png)
 
 回到道馆，将 flag 粘贴至浅绿色框内，然后点击右侧 submit 提交，如果出现 correct 提示并且旗帜变成绿色说明 flag 正确，闯关成功。
 
@@ -305,15 +305,15 @@ resources:
 
 第五关是使用练习模式获取 sudo 权限读取密钥，然后再在正常模式下运行可执行文件输入密钥，获取 flag。点击 practice 练习模式按钮开启第四关，进入 VSCode 工作空间。
 
-![](static/OZhYbdgIeo5OdPxaU3hcuRMWnJd.png)
+![image](static/OZhYbdgIeo5OdPxaU3hcuRMWnJd.png)
 
 用命令 sudo cat 。/secret 来读取密钥
 
-![](static/M3Npb8Gexo5UhZxcQtYcqFQKn2c.png)
+![image](static/M3Npb8Gexo5UhZxcQtYcqFQKn2c.png)
 
 回到道馆，点击 start 正常模式，进入工作空间，运行可执行文件，输入密钥，获取 flag。
 
-![](static/SXBbbCkRDo5MSaxTI8ScgqQVn0e.png)
+![image](static/SXBbbCkRDo5MSaxTI8ScgqQVn0e.png)
 
 回到道馆，将 flag 粘贴至浅绿色框内，然后点击右侧 submit 提交，如果出现 correct 提示并且旗帜变成绿色说明 flag 正确，闯关成功。
 
@@ -323,9 +323,9 @@ resources:
 
 可以通过打开文件夹，选择 home/hacker 到家目录，家目录在挑战关卡中保持不变，可在其中新建文件、文件夹，具体操作可以通过第六关第七关验证。
 
-![](static/HuvsbDPzko0tdbxn7jMcJVfLnhh.png)
+![image](static/HuvsbDPzko0tdbxn7jMcJVfLnhh.png)
 
-![](static/EciVbgytqo1beqxB8vecmUeunih.png)
+![image](static/EciVbgytqo1beqxB8vecmUeunih.png)
 
 ## 3.3 图形桌面工作空间
 
@@ -333,19 +333,19 @@ resources:
 
 点击 start 按钮开启第二关，点击上方桌面按钮或蓝色提示上的 GUIDesktop 均可进入桌面环境。
 
-![](static/XJ7EbRzhrouTzMx5FeQcwfFNnKf.png)
+![image](static/XJ7EbRzhrouTzMx5FeQcwfFNnKf.png)
 
 进入桌面环境，可以看到 challenge 目录下的 DESCRIPTION 任务描述以及可执行程序 solve，在 challenge 目录下右键打开终端。
 
-![](static/KBU7brAEroeQ3YxHyQDc38pLnPe.png)
+![image](static/KBU7brAEroeQ3YxHyQDc38pLnPe.png)
 
 输入命令。/solve 运行可执行程序可以得到 flag 以及将 flag 从桌面平台粘贴到宿主机系统的方法。
 
-![](static/J5pgb8WtpoXgolxtN4ZcsQpOntg.png)
+![image](static/J5pgb8WtpoXgolxtN4ZcsQpOntg.png)
 
 根据方法打开屏幕左侧的剪切板，勾选 flag 内容，发现剪切板中显示 flag 内容，在剪切板里面复制 flag 内容。
 
-![](static/UzUAbt1QzoNL5axiAYCcAXvCn0b.png)
+![image](static/UzUAbt1QzoNL5axiAYCcAXvCn0b.png)
 
 回到道馆，将 flag 粘贴至浅绿色框内，然后点击右侧 submit 提交，如果出现 correct 提示并且旗帜变成绿色说明 flag 正确，闯关成功。
 
@@ -353,15 +353,15 @@ resources:
 
 启动第三关桌面拷贝，复制令牌，在/challenge 目录中打开终端，输入指令。/solve 运行可执行程序，获得能从宿主机拷贝到桌面环境中的方法。
 
-![](static/HvRjb2I6Ho9sMkxd4UHcWUpUnfh.png)
+![image](static/HvRjb2I6Ho9sMkxd4UHcWUpUnfh.png)
 
 将令牌粘贴至剪贴簿并且复制。
 
-![](static/CHOhbqrxNozk90xswSrcmkMBnNn.png)
+![image](static/CHOhbqrxNozk90xswSrcmkMBnNn.png)
 
 在终端中输入令牌获取 flag，复制 flag 至宿主机参考 3.3.1 的内容。
 
-![](static/Zn7HbY55DofT05x4maTci6Ycn7d.png)
+![image](static/Zn7HbY55DofT05x4maTci6Ycn7d.png)
 
 回到道馆，将 flag 粘贴至浅绿色框内，然后点击右侧 submit 提交，如果出现 correct 提示并且旗帜变成绿色说明 flag 正确，闯关成功。
 
@@ -373,41 +373,41 @@ resources:
 
 打开终端，通过 cd 进入。ssh 文件夹，输入 ssh-keygen -f key（在 win11 终端中，使用空字符串作为参数可能会引起语法错误或不被接受，-N 去掉后输入密码时直接回车表示无密码），生成 key 和 key.pub 公私钥对，通过 cat key.pub 将公钥内容复制出来。
 
-![](static/HHM1bqcaSokSk6xiA01cxffOnOc.png)
+![image](static/HHM1bqcaSokSk6xiA01cxffOnOc.png)
 
 回到道馆点击右上角设置，点击左侧 SSH 公钥。
 
-![](static/FDTZbMxHTo9ukJxI17AcbXtUnjd.png)
+![image](static/FDTZbMxHTo9ukJxI17AcbXtUnjd.png)
 
 将复制的公钥填入并且点击 update，出现绿色提示说明公钥成功上传。
 
-![](static/ZoEPbAYvaowUPkxytfvcqTS5n4g.png)
+![image](static/ZoEPbAYvaowUPkxytfvcqTS5n4g.png)
 
-回到 Win11 终端，ssh -i ～/。ssh/key -p 22223 hacker@pwn.hust.college，即可连接到挑战关卡容器，切换到 challenge 目录，然后运行挑战程序，获取 flag。
+回到 Win11 终端，ssh -i ～/。ssh/key -p 22223 <hacker@pwn.hust.college>，即可连接到挑战关卡容器，切换到 challenge 目录，然后运行挑战程序，获取 flag。
 
-![](static/Z73VbWoLSoaWTsxfop4cGdHOnpb.png)
+![image](static/Z73VbWoLSoaWTsxfop4cGdHOnpb.png)
 
 最后回到道馆，将 flag 粘贴至浅绿色框内，然后点击右侧 submit 提交，如果出现 correct 提示并且旗帜变成绿色说明 flag 正确，闯关成功。
 
-# 四、管理员手册
+## 四、管理员手册
 
 平台创建的时候自动创建管理员用户 admin，密码是 admin，进入后请首先点击设置，修改管理员密码。管理员主要负责平台用户的管理和平台自身的管理。
 
-![](static/P4rtb0q00oux5TxrRc4cPF5Rnse.png)
+![image](static/P4rtb0q00oux5TxrRc4cPF5Rnse.png)
 
 接下来，我们进入平台和用户管理的界面，点击右上角的管理面板进入。
 
-![](static/F86Nb4Wf3o39ZjxD34rcQ2V1ncg.png)
+![image](static/F86Nb4Wf3o39ZjxD34rcQ2V1ncg.png)
 
 进入到下列界面即代表我们进入 admin 的管理界面。
 
-![](static/OZzhbYiI9oLZ8MxM79lcioLnnqg.png)
+![image](static/OZzhbYiI9oLZ8MxM79lcioLnnqg.png)
 
 ## 4.1 用户管理
 
 平台有两种类型的账户：用户和团队。根据配置使用的用户模式，参与者需要注册账户或注册账户并加入团队。平台有两种 “用户模式“：用户模式和团队模式。用户模式决定了参赛选手的注册方式和计分方式。
 
-**团队模式**
+### 团队模式
 
 如果您将 CTF 设置为团队模式，每支队伍都需要选择一名队长。队长应注册一个团队，然后与队友共享团队密码。队友就可以使用队名和密码加入队伍。
 
@@ -417,7 +417,7 @@ resources:
 
 在团队模式下，每个人都应注册自己的用户账户。然后，每个团队中的一人（队长）应注册一个团队账户，并与其他队友共享团队名称和密码。然后，其他成员应使用这些凭证加入团队。单人玩家仍可在团队模式中进行游戏，但仍需注册一个团队。
 
-**用户模式**
+### 用户模式
 
 在用户模式下，平台允许参与者使用自己的用户账户独自游戏。多名玩家也可共享同一账户一起游戏，但解题和提交的信息都将归属于同一账户，而不是按玩家分类。本平台默认是使用的用户模式。
 
@@ -427,15 +427,15 @@ resources:
 
 管理员可以编辑其他用户的属性，进入管理面板。点击用户选项卡，然后选择要更改的用户。
 
-![](static/S6RBbYhr9oh1MkxOuTTcylUrnWd.png)
+![image](static/S6RBbYhr9oh1MkxOuTTcylUrnWd.png)
 
 点击 user 图标进行修改用户的个人信息。
 
-![](static/EqIdbWULFoPy2ixQ2u9cie3ZnHd.png)
+![image](static/EqIdbWULFoPy2ixQ2u9cie3ZnHd.png)
 
 弹出一个表单，允许您编辑用户属性
 
-![](static/NsWzbi7jFoc7gdx0XRCcerCLnGd.png)
+![image](static/NsWzbi7jFoc7gdx0XRCcerCLnGd.png)
 
 #### 编辑用户权限
 
@@ -443,11 +443,11 @@ resources:
 
 1. 点击用户下拉列表
 
-![](static/Ob9ubEur5ov3XlxNnezcLURInWf.png)
+![image](static/Ob9ubEur5ov3XlxNnezcLURInWf.png)
 
 1. 选择所需的用户角色，然后提交以保存更改
 
-![](static/Wp7ObEVu3o9PdmxuAQ1cyR8tnR2.png)
+![image](static/Wp7ObEVu3o9PdmxuAQ1cyR8tnR2.png)
 
 ### 4.1.2 新增用户
 
@@ -456,11 +456,11 @@ resources:
 1. 点击右上角的管理按钮，进入管理面板
 2. 点击用户选项卡，然后点击顶部的加号图标
 
-![](static/DVL4biucioFlIBxmxb4cSUYtnqe.png)
+![image](static/DVL4biucioFlIBxmxb4cSUYtnqe.png)
 
 1. 填写新用户的必要信息。必要时更改用户的角色，将其晋升为管理员用户
 
-![](static/AhuCbBfR2oyZ13xizsTctbnan9c.png)
+![image](static/AhuCbBfR2oyZ13xizsTctbnan9c.png)
 
 1. 单击提交按钮创建用户
 
@@ -474,11 +474,11 @@ resources:
    - 选择文本字段作为字段类型。
    - 确保它是注册时的状态，并且确认普通用户是否可以更改。
 
-![](static/QPytbgFbOomzuexBFswc1w9znC6.png)
+![image](static/QPytbgFbOomzuexBFswc1w9znC6.png)
 
 1. 点击 save，即可完成字段添加。
 
-![](static/SYaubQdHboYMRTxJErLc82BvnAd.png)
+![image](static/SYaubQdHboYMRTxJErLc82BvnAd.png)
 
 ## 4.2 平台管理
 
@@ -490,11 +490,11 @@ resources:
 
 1. 首先进入管理界面，点击 config
 
-![](static/K6GtbXVUYo7Ihxx2BhlcSqQQnRg.png)
+![image](static/K6GtbXVUYo7Ihxx2BhlcSqQQnRg.png)
 
 1. 选择合适的 Theme，然后点击 Update 即可完成主题更换。
 
-![](static/ZkFnbeSoqok1cCxFXwLcylhRn5e.png)
+![image](static/ZkFnbeSoqok1cCxFXwLcylhRn5e.png)
 
 ### 4.2.2 配置管理
 
@@ -538,7 +538,7 @@ CTFd 支持主题页眉/主题页脚配置，允许管理员添加自定义超�
 </style>
 ```
 
-![](static/NdpYbBa8AowXrVxbBf7cVuGPnJf.png)
+![image](static/NdpYbBa8AowXrVxbBf7cVuGPnJf.png)
 
 #### 导入题目备份实例
 
@@ -549,7 +549,7 @@ CTFd 支持主题页眉/主题页脚配置，允许管理员添加自定义超�
 3. 单击 “备份 “选项卡，然后选择 “导入 “面板
 4. 上传备份并单击 “导入 “后，页面将重新加载。
 
-![](static/RWGzbM3U1oBy8jxnFK9cSsGfn7t.png)
+![image](static/RWGzbM3U1oBy8jxnFK9cSsGfn7t.png)
 
 #### 重制平台
 
@@ -557,15 +557,15 @@ CTFd 支持主题页眉/主题页脚配置，允许管理员添加自定义超�
 
 如果您想重置 CTFd 实例并移除所有用户、团队和提交的内容，请使用以下说明：
 
-![](static/UtCkbIOowomRBIxBoNzc5Jvxnfb.png)
+![image](static/UtCkbIOowomRBIxBoNzc5Jvxnfb.png)
 
-![](static/QbmkbawYXoTvqfx5H7bc5Vi3ncf.png)
+![image](static/QbmkbawYXoTvqfx5H7bc5Vi3ncf.png)
 
 #### 白名单电子邮件
 
 CTFd 支持电子邮件域白名单。只有管理员才能从账户电子邮件白名单中添加或删除域。
 
-![](static/TrJLbWnl9oH9y7xiWolcyPUcndb.png)
+![image](static/TrJLbWnl9oH9y7xiWolcyPUcndb.png)
 
 要将域名添加到白名单：
 
@@ -576,7 +576,7 @@ CTFd 支持电子邮件域白名单。只有管理员才能从账户电子邮件
 
 点击 config，然后打开 Email，即可配置相关邮件格式。
 
-![](static/GqLKblD5jouPAkxIReScX0IGndc.png)
+![image](static/GqLKblD5jouPAkxIReScX0IGndc.png)
 
 在 Email Server 界面
 
@@ -587,7 +587,7 @@ CTFd 支持电子邮件域白名单。只有管理员才能从账户电子邮件
 
 **请注意，公网部署的平台不要使用该功能，避免邮箱密码被泄露！**
 
-![](static/QmV9bX7mrocUbZx98wcccs2Anic.png)
+![image](static/QmV9bX7mrocUbZx98wcccs2Anic.png)
 
 ### 4.2.3 页面管理
 
@@ -597,43 +597,43 @@ CTFd 支持电子邮件域白名单。只有管理员才能从账户电子邮件
 
 1. 我们点击页面管理，选择 index 路由。
 
-![](static/GNyBbkPZKoKHALxgKmgcVCHEngJ.png)
+![image](static/GNyBbkPZKoKHALxgKmgcVCHEngJ.png)
 
 1. 将 index 界面修改过后，我们点击 save，主页即可刷新。
 
-![](static/ZfDtbNBPsoQR9exSlwLcijmRnCh.png)
+![image](static/ZfDtbNBPsoQR9exSlwLcijmRnCh.png)
 
 #### 删除界面
 
 点击红色删除图标，即可删除界面。
 
-![](static/Rgv3b74LRoC4GvxSNe1czdnDn5b.png)
+![image](static/Rgv3b74LRoC4GvxSNe1czdnDn5b.png)
 
 #### 新增界面
 
 1. 点击界面中间的 pages 添加。
 
-![](static/Af6ib8ATuox8MIxkSDUcK3OXnih.png)
+![image](static/Af6ib8ATuox8MIxkSDUcK3OXnih.png)
 
 1. 输入新页面的路由，信息，是否可见，是否需要鉴权等信息，点击 save 即可保存一个新的界面
 
-![](static/DS1wbGtc2oD0hIx8xwscjxDMnQc.png)
+![image](static/DS1wbGtc2oD0hIx8xwscjxDMnQc.png)
 
 ### 4.2.4 道馆管理
 
 点击 道馆，即可管理当前的所有道馆。
 
-![](static/RIlsbU8P8od90qxW8Mpc8wwqn0e.png)
+![image](static/RIlsbU8P8od90qxW8Mpc8wwqn0e.png)
 
 点击具体的道馆，将跳转到道馆页面进行管理。
 
-![](static/Jsusbjg6ZoS7sKxJP0acZ0bWndc.png)
+![image](static/Jsusbjg6ZoS7sKxJP0acZ0bWndc.png)
 
 ### 4.2.5 道馆全局可见
 
 新添加的道馆默认均为个人可见，只有平台管理员才能权限在道馆管理界面中点击 Make This Dojo Official，使所有人可见。其他人是看不到该按钮。
 
-![](static/KhRsb1i9VomzPDxEH7zcbrkan1d.png)
+![image](static/KhRsb1i9VomzPDxEH7zcbrkan1d.png)
 
 ### 4.2.6 备份导出
 
@@ -644,9 +644,9 @@ CTFd 可将所有实例数据导出为 zip 文件，以便存档。可将此压�
 3. 单击右上角的 “配置 “选项卡
 4. 单击 “备份 “选项卡
 
-![](static/BOK9bBZ3Yo5H5dxic28cp0pfn2d.png)
+![image](static/BOK9bBZ3Yo5H5dxic28cp0pfn2d.png)
 
 1. 您可以使用 “导出 “选项卡导出整个实例，也可以使用 “下载 CSV “选项卡导出特定数据，包括用户数据和自定义字段，以便进行分析。
 2. 单击 “导出“，您将下载实例的 zip 文件。该压缩文件包含实例的 json 文件。
 
-![](static/U05rbhylMoINapxhsJdcTH5Cnrf.png)
+![image](static/U05rbhylMoINapxhsJdcTH5Cnrf.png)

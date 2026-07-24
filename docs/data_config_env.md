@@ -208,21 +208,21 @@ Access Token 为临时凭证，常用于用户登录和数据访问。
 
 ---
 
-## 字段与用途对照表
+## Discord 字段与用途对照表
 
 | 字段名                            | 类型       | 用途说明                                              |
 | --------------------------------- | ---------- | ----------------------------------------------------- |
-| `DISCORD_GUILD_ID`                | 服务器 ID  | 指定 Discord 服务器（Guild），即机器人运行的目标服务器。 |
+| `DISCORD_GUILD_ID`                | 服务器 ID  | 指定 Discord 服务器（Guild），即机器人运行目标服务器。|
 | `DISCORD_CHANNEL_ID_AWARD`        | 频道 ID    | 授勋频道，机器人在此推送完成道馆后的奖励消息。        |
 | `DISCORD_CHANNEL_ID_WELCOME`      | 频道 ID    | 欢迎频道，机器人在此发送新成员加入欢迎信息。          |
 | `DISCORD_CHANNEL_ID_NOTIFICATION` | 频道 ID    | 通知频道，用于发送系统通知消息。                      |
 | `DISCORD_CLIENT_ID`               | OAuth 参数 | OAuth2 授权的客户端 ID。                              |
 | `DISCORD_CLIENT_SECRET`           | OAuth 参数 | OAuth2 授权的客户端密钥。                             |
-| `DISCORD_BOT_TOKEN`               | 机器人令牌 | 机器人连接 Discord 服务器所需的身份凭证。                |
+| `DISCORD_BOT_TOKEN`               | 机器人令牌 | 机器人连接 Discord 服务器所需的身份凭证。             |
 
 ---
 
-## 配置字段说明
+## Discord 配置字段说明
 
 ### `DISCORD_GUILD_ID`
 
@@ -291,7 +291,7 @@ Discord 配置字段的获取方式大致分为两类：
 * **服务器与频道相关字段**（Guild ID、Channel ID）
 * **应用与机器人相关字段**（Client ID、Client Secret、Bot Token）
 
-### 1. 获取服务器与频道 ID
+### 1. 获取 Discord 服务器与频道 ID
 
 涉及字段：`DISCORD_GUILD_ID`、`DISCORD_CHANNEL_ID_AWARD`、`DISCORD_CHANNEL_ID_WELCOME`、`DISCORD_CHANNEL_ID_NOTIFICATION`
 
@@ -312,7 +312,7 @@ Discord 配置字段的获取方式大致分为两类：
 
 ---
 
-### 2. 获取应用与机器人参数
+### 2. 获取 Discord 应用与机器人参数
 
 涉及字段：`DISCORD_CLIENT_ID`、`DISCORD_CLIENT_SECRET`、`DISCORD_BOT_TOKEN`
 
@@ -359,12 +359,12 @@ Discord 配置字段的获取方式大致分为两类：
 
 涉及字段：`DISCORD_CLIENT_ID`、`DISCORD_CLIENT_SECRET`
 
-#### 3.1 字段说明
+#### 3.1 Discord 字段说明
 
 * `DISCORD_CLIENT_ID`：OAuth 客户端 ID，用于标识应用
 * `DISCORD_CLIENT_SECRET`：OAuth 客户端密钥，用于鉴权
 
-#### 3.2 Access Token 获取流程
+#### 3.2 Discord Access Token 获取流程
 
 1. 在 Discord 开发者门户 **OAuth2 → General** 页面配置授权回调地址（redirect_uri）
 2. 平台使用 Client ID 构造授权 URL，引导用户跳转至 Discord 授权页面

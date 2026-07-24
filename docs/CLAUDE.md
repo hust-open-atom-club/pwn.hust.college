@@ -17,6 +17,7 @@ Default working branch is `hustsec_dev` (not `master`/`main`). Docs live in `doc
 Inner compose stack: `ctfd` (the patched CTFd), `db` (mariadb 10.4), `cache` (redis), `sshd`, `nginx` (nginxproxy/nginx-proxy + acme-companion), `open-webui` (sensai), `prometheus`, `grafana`, plus node/mysql/redis/nginx exporters. Containers share a custom `user_network` bridge (`10.114.0.0/16`), and per-user challenge containers are launched onto the same network by the plugin via the host Docker socket that is bind-mounted into `ctfd`.
 
 `dojo-init` runs before systemd and is **idempotent** — it only defines config variables that aren't already set, so it's safe to re-run:
+
 - Seeds `data/config.env` with defaults for required variables: `DOJO_HOST`, `DOJO_ENV`, `DOJO_CHALLENGE`, `SECRET_KEY` (auto-generated HMAC key for flag signing), `ARCH` (auto-detected), `INTERNET_FOR_ALL`, and tool install flags (`INSTALL_GDB`, `INSTALL_GHIDRA`, …)
 - Creates a 1 GB `homes/homefs` loopback ext4 image for per-user persistent home directories
 - Sets up `iptables` rules for the user firewall from `user_firewall.allowed`
@@ -35,6 +36,7 @@ The platform is implemented as a **CTFd plugin** mounted read-only at `/opt/CTFd
 - `dojo_plugin/config.py` calls `bootstrap()` on load: hardcodes `ctf_name`, `user_mode=users`, sets `ctf_theme=dojo_theme`, and creates an `admin/admin` admin on first run. **Change the admin password after first deploy.**
 
 The plugin follows a layered structure:
+
 - `pages/` — Flask blueprints for HTML views (dojos, workspace, desktop, sso, kook, discord, sensai, course, writeups, belts, users, settings, index)
 - `api/v1/` — REST API blueprint at `/pwncollege_api/v1` (`docker.py` starts challenge containers, `scoreboard.py`, `belts.py`, `dojo.py`, `discord.py`, `sso_login.py`, …)
 - `utils/` — business logic: flag serialization (`serialize_user_flag`/`unserialize_user_flag`), markdown rendering, dojo loading (`load_dojo`), firewall, seccomp, award tracking, IP addressing
@@ -62,6 +64,7 @@ When a user starts a challenge, the plugin launches a container from the image b
 Outbound traffic from user containers is firewalled by `iptables` rules set in `dojo-init` (allowlist in `user_firewall.allowed`, plus explicit ACCEPT for the sensai container at `10.114.0.11`).
 
 The `challenge/` directory builds this image. Key contents:
+
 - `Dockerfile_amd64` / `Dockerfile_arm64` — multi-stage build (`challenge-base` → `challenge-slim` → `challenge-final`), gated by `DOJO_CHALLENGE` and `INSTALL_*` build args
 - `docker-entrypoint.sh` / `docker-initialize.sh` — container startup scripts
 - `services.d/` — s6 service definitions for VNC, noVNC, SSH, etc.
@@ -119,6 +122,7 @@ CONTAINER_NAME=my-dojo pytest ...                 # point tests at non-default c
 Tests talk to `http://localhost` and shell out via `docker exec <CONTAINER_NAME> dojo ...` (see `test/utils.py::dojo_run`). They need to run on the host where the outer container is reachable, not inside it. Browser-based tests require `MOZ_HEADLESS=1`.
 
 Key test helpers in [test/utils.py](test/utils.py):
+
 - `login(name, password, *, register=False)` — creates an authenticated `requests.Session` with CSRF token
 - `dojo_run(*args)` — runs `docker exec <CONTAINER_NAME> dojo ...` from the host
 - `workspace_run(cmd, *, user, root=False)` — runs a command inside a user's challenge container
@@ -127,6 +131,7 @@ Key test helpers in [test/utils.py](test/utils.py):
 - `generate_ssh_keypair()` — generates an ed25519 keypair for dojo creation
 
 Pytest fixtures in [test/conftest.py](test/conftest.py):
+
 - `admin_session` (session-scoped) — authenticated admin session (admin/admin)
 - `random_user` (function-scoped) — fresh random user per test; auto-registers
 - `completionist_user` / `guest_dojo_admin` (session-scoped) — persistent test users

@@ -91,51 +91,213 @@ OLLAMA_BASE_URLS=""
 
 其中 `INSTALL_DESKTOP` 默认为 `yes`，其余默认为 `no`。
 
-## KOOK 配置
+## pwn.hust.college 平台 KOOK 配置说明
 
-平台支持 KOOK 机器人集成，在 `config.env` 中配置以下字段：
+平台在 `config.env` 文件中保存了核心运行配置，其中包括与 **KOOK 机器人服务** 对接的参数。这部分内容将详细说明 KOOK 相关字段的含义、用途及获取方式。
+
+---
+
+### 字段与用途对照表
 
 | 字段名 | 类型 | 用途说明 |
 | ------ | ---- | -------- |
-| `KOOK_GUILD_ID` | 服务器 ID | 机器人运行的目标服务器。 |
-| `KOOK_CHANNEL_ID_AWARD` | 频道 ID | 授勋频道，用户完成道馆后推送奖励消息。 |
-| `KOOK_CHANNEL_ID_WELCOME` | 频道 ID | 欢迎频道，新成员加入时发送欢迎信息。 |
-| `KOOK_CHANNEL_ID_NOTIFICATION` | 频道 ID | 通知频道，预留字段。 |
-| `KOOK_APP_ID` | 应用 ID | KOOK 应用的唯一标识。 |
+| `KOOK_GUILD_ID` | 服务器 ID | 指定 KOOK 服务器（Guild），即机器人运行的目标服务器。 |
+| `KOOK_CHANNEL_ID_AWARD` | 频道 ID | 授勋频道，机器人在此推送完成道馆后的奖励消息。 |
+| `KOOK_CHANNEL_ID_WELCOME` | 频道 ID | 欢迎频道，机器人在此发送新成员加入欢迎信息。 |
+| `KOOK_CHANNEL_ID_NOTIFICATION` | 频道 ID | 通知频道，预留字段，目前暂未启用。 |
+| `KOOK_APP_ID` | 应用 ID | 标识 KOOK 应用，是 API 调用和机器人开发的基础。 |
 | `KOOK_TOKEN` | 机器人密钥 | 机器人连接 KOOK 服务器所需的身份凭证。 |
 | `KOOK_CLIENT_ID` | OAuth 参数 | OAuth2 授权的客户端 ID。 |
 | `KOOK_CLIENT_SECRET` | OAuth 参数 | OAuth2 授权的客户端密钥。 |
 
-### 获取方式
+---
 
-服务器和频道 ID：在 KOOK 客户端开启开发者模式（设置 → 高级设置 → 开发者模式）后，右键服务器/频道 → 复制 ID。
+### 配置字段说明
 
-应用与机器人参数：访问 [KOOK 开放平台](https://developer.kookapp.cn)，创建应用后获取 App ID 和 App Secret。在应用管理 → 机器人页面创建机器人并获取 Token。
+#### `KOOK_GUILD_ID`
 
-OAuth2 参数：在 KOOK 开放平台的应用管理 → OAuth2 页面获取 Client ID 和 Client Secret，配置回调地址为 `https://<域名>/kook/redirect`。
+- **说明**：KOOK 服务器（Guild）的唯一标识符。
+- **用途**：指明机器人运行的目标服务器。
+
+#### `KOOK_CHANNEL_ID_AWARD`
+
+- **说明**：授勋频道的 ID。
+- **用途**：当用户完成一个完整道馆时，机器人会在此频道发送庆祝信息并授予徽章。
+- **位置**：位于 KOOK 服务器 **"道馆"** 分组下的 **"徽章授予"** 频道。
+
+#### `KOOK_CHANNEL_ID_WELCOME`
+
+- **说明**：欢迎频道的 ID。
+- **用途**：当新成员加入 KOOK 服务器时，机器人会在此频道发送欢迎信息。
+- **位置**：位于 KOOK 服务器 **"道馆"** 分组下的 **"新手区"** 频道。
+
+#### `KOOK_CHANNEL_ID_NOTIFICATION`
+
+- **说明**：通知频道的 ID。
+- **用途**：作为预留字段，目前暂未启用。
+
+#### `KOOK_APP_ID`
+
+- **说明**：机器人应用的 ID。
+- **用途**：KOOK 开放平台为应用分配的唯一标识，用于 API 调用和机器人绑定。
+
+#### `KOOK_TOKEN`
+
+- **说明**：机器人连接 KOOK 所需的 **密钥**。
+- **用途**：用于身份验证，保证机器人能正常接入服务器。
+- **备注**：在本平台中，该 Token 对应 `pwn.hust.college` 机器人。
+
+#### `KOOK_CLIENT_ID`
+
+- **说明**：KOOK **OAuth2 客户端 ID**。
+- **用途**：用于 OAuth2 授权流程，标识平台对应的 KOOK 应用。
+
+#### `KOOK_CLIENT_SECRET`
+
+- **说明**：KOOK **OAuth2 客户端密钥**。
+- **用途**：与 `KOOK_CLIENT_ID` 配合使用，完成 OAuth2 授权。
+
+---
+
+### KOOK 字段获取与配置
+
+KOOK 配置字段的获取方式大致分为两类：
+
+- **服务器与频道相关字段**（Guild ID、Channel ID）
+- **应用与机器人相关字段**（App ID、Token、OAuth2 参数）
+
+#### 1. 获取服务器与频道 ID
+
+涉及字段：`KOOK_GUILD_ID`、`KOOK_CHANNEL_ID_AWARD`、`KOOK_CHANNEL_ID_WELCOME`
+
+1. 开启开发者模式：
+   - 点击界面左下角头像 → **用户设置**
+   - 在左侧菜单底部找到 **高级设置** → 打开 **开发者模式**。
+
+2. 获取频道 ID：右键频道名称 → **复制 ID**，即可获得频道 ID。
+
+3. 获取服务器 ID：点击服务器名称旁的齿轮 → **服务器设置** → **基础信息** → **服务器 ID**。
+
+#### 2. 获取应用与机器人参数
+
+涉及字段：`KOOK_APP_ID`、`KOOK_TOKEN`
+
+1. 访问 KOOK 开放平台 <https://developer.kookapp.cn>，登录 KOOK 账号并完成实名认证。
+2. 进入 **应用管理** → **新建应用**，填写名称、描述和使用场景。
+3. 系统生成 App ID（即 Client ID）和 App Secret。
+4. 如需开发机器人，在 **机器人** 页面创建机器人并获取专属 Token，App ID 会自动绑定该机器人。
+
+#### 3. OAuth2 相关参数
+
+涉及字段：`KOOK_CLIENT_ID`、`KOOK_CLIENT_SECRET`
+
+1. 在 KOOK 开放平台 **应用管理 → OAuth2** 页面配置授权回调地址（redirect_uri），例如 `https://<域名>/kook/redirect`。
+2. 平台使用 Client ID 构造授权 URL，引导用户跳转至 KOOK 授权页面。
+3. 用户授权后，KOOK 回调 redirect_uri 并返回授权码。
+4. 平台使用授权码、Client ID、Client Secret 向 KOOK 服务器交换 Access Token。
 
 未配置 KOOK 凭据时，相关功能自动禁用。
 
-## Discord 配置
+---
 
-平台支持 Discord 机器人集成，在 `config.env` 中配置以下字段：
+## pwn.hust.college 平台 Discord 配置说明
+
+平台在 `config.env` 文件中保存了核心运行配置，其中包括与 **Discord 机器人服务** 对接的参数。这部分内容将详细说明 Discord 相关字段的含义、用途及获取方式。
+
+---
+
+### 字段与用途对照表
 
 | 字段名 | 类型 | 用途说明 |
 | ------ | ---- | -------- |
-| `DISCORD_GUILD_ID` | 服务器 ID | 机器人运行的目标服务器。 |
-| `DISCORD_CHANNEL_ID_AWARD` | 频道 ID | 授勋频道，用户完成道馆后推送奖励消息。 |
-| `DISCORD_CHANNEL_ID_WELCOME` | 频道 ID | 欢迎频道，新成员绑定时发送欢迎信息。 |
-| `DISCORD_CHANNEL_ID_NOTIFICATION` | 频道 ID | 通知频道，用于发送系统通知。 |
+| `DISCORD_GUILD_ID` | 服务器 ID | 指定 Discord 服务器（Guild），即机器人运行的目标服务器。 |
+| `DISCORD_CHANNEL_ID_AWARD` | 频道 ID | 授勋频道，机器人在此推送完成道馆后的奖励消息。 |
+| `DISCORD_CHANNEL_ID_WELCOME` | 频道 ID | 欢迎频道，机器人在此发送新成员加入欢迎信息。 |
+| `DISCORD_CHANNEL_ID_NOTIFICATION` | 频道 ID | 通知频道，用于发送系统通知消息。 |
 | `DISCORD_CLIENT_ID` | OAuth 参数 | OAuth2 授权的客户端 ID。 |
 | `DISCORD_CLIENT_SECRET` | OAuth 参数 | OAuth2 授权的客户端密钥。 |
 | `DISCORD_BOT_TOKEN` | 机器人令牌 | 机器人连接 Discord 服务器所需的身份凭证。 |
 
-### 获取方式
+---
 
-服务器和频道 ID：在 Discord 客户端开启开发者模式（设置 → 高级 → 开发者模式）后，右键服务器/频道 → 复制 ID。
+### 配置字段说明
 
-应用与机器人参数：访问 [Discord 开发者门户](https://discord.com/developers/applications)，创建应用后在 OAuth2 → General 页面获取 Client ID 和 Client Secret。在 Bot 页面创建机器人并获取 Token。在 OAuth2 → URL Generator 生成邀请链接，将机器人添加到目标服务器。
+#### `DISCORD_GUILD_ID`
 
-OAuth2 回调地址配置为 `https://<域名>/discord/redirect`。
+- **说明**：Discord 服务器（Guild）的唯一标识符。
+- **用途**：指明机器人运行的目标服务器。
+- **获取方式**：在 Discord 开发者模式下，右键服务器名称 → **复制服务器 ID**。
+
+#### `DISCORD_CHANNEL_ID_AWARD`
+
+- **说明**：授勋频道的 ID。
+- **用途**：当用户完成一个完整道馆时，机器人会在此频道发送庆祝信息并授予徽章。
+- **获取方式**：在 Discord 开发者模式下，右键频道名称 → **复制频道 ID**。
+
+#### `DISCORD_CHANNEL_ID_WELCOME`
+
+- **说明**：欢迎频道的 ID。
+- **用途**：当新成员绑定 Discord 账号时，机器人会在此频道发送欢迎信息。
+- **获取方式**：在 Discord 开发者模式下，右键频道名称 → **复制频道 ID**。
+
+#### `DISCORD_CHANNEL_ID_NOTIFICATION`
+
+- **说明**：通知频道的 ID。
+- **用途**：用于发送系统通知消息。
+- **获取方式**：在 Discord 开发者模式下，右键频道名称 → **复制频道 ID**。
+
+#### `DISCORD_CLIENT_ID`
+
+- **说明**：Discord **OAuth2 客户端 ID**。
+- **用途**：用于 OAuth2 授权流程，标识平台对应的 Discord 应用。
+- **获取方式**：在 Discord 开发者门户创建应用后，在 **OAuth2** 页面获取 Client ID。
+
+#### `DISCORD_CLIENT_SECRET`
+
+- **说明**：Discord **OAuth2 客户端密钥**。
+- **用途**：与 `DISCORD_CLIENT_ID` 配合使用，完成 OAuth2 授权。
+- **获取方式**：在 Discord 开发者门户的 **OAuth2** 页面获取 Client Secret。
+
+#### `DISCORD_BOT_TOKEN`
+
+- **说明**：机器人连接 Discord 所需的 **令牌（Token）**。
+- **用途**：用于身份验证，保证机器人能正常接入服务器并执行操作（如发送消息、添加角色等）。
+- **获取方式**：在 Discord 开发者门户创建机器人后，在 **Bot** 页面生成 Token。
+- **备注**：Token 需要妥善保管，泄露后应立即重置。
+
+---
+
+### Discord 字段获取与配置
+
+Discord 配置字段的获取方式大致分为两类：
+
+- **服务器与频道相关字段**（Guild ID、Channel ID）
+- **应用与机器人相关字段**（Client ID、Client Secret、Bot Token）
+
+#### 1. 获取服务器与频道 ID
+
+涉及字段：`DISCORD_GUILD_ID`、`DISCORD_CHANNEL_ID_AWARD`、`DISCORD_CHANNEL_ID_WELCOME`、`DISCORD_CHANNEL_ID_NOTIFICATION`
+
+1. 打开 Discord 客户端，进入 **用户设置**（点击左下角齿轮图标）
+2. 在左侧菜单中找到 **高级** → 开启 **开发者模式**
+3. 右键点击服务器名称或频道名称 → **复制 ID**，即可获得对应 ID
+
+#### 2. 获取应用与机器人参数
+
+涉及字段：`DISCORD_CLIENT_ID`、`DISCORD_CLIENT_SECRET`、`DISCORD_BOT_TOKEN`
+
+1. 访问 Discord 开发者门户 <https://discord.com/developers/applications>，登录 Discord 账号
+2. 点击右上角 **New Application**，填写应用名称
+3. 在 **OAuth2 → General** 页面获取 **CLIENT ID** 和 **CLIENT SECRET**
+4. 在 **Bot** 页面，点击 **Add Bot** 创建机器人，然后点击 **Reset Token** 生成 Bot Token
+5. 在 **OAuth2 → URL Generator** 页面，勾选 `bot` 和 `identify` scopes，以及所需权限（Send Messages、Read Message History、Manage Roles 等），生成邀请链接将机器人添加到目标服务器
+6. 在 **Redirects** 部分添加 OAuth2 回调地址，例如 `https://<域名>/discord/redirect`
+
+#### 3. OAuth2 授权流程
+
+1. 平台使用 Client ID 构造授权 URL，引导用户跳转至 Discord 授权页面
+2. 用户授权后，Discord 回调 redirect_uri 并返回授权码（code）
+3. 平台使用授权码、Client ID、Client Secret 向 Discord 服务器交换 Access Token
+4. 使用 Access Token 获取用户的 Discord ID，完成账号绑定
 
 未配置 Discord 凭据时，相关功能自动禁用。

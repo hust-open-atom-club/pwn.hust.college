@@ -18,6 +18,9 @@
 - [🏆 pwn.hust.college 部署](./docs/pwnhustcollege_deployment.md)
 - [🚩 Challenge](./docs/challenge.md)
 - [💻 开发](./docs/development.md)
+- [⚙️ 配置说明](./docs/data_config_env.md)
+- [🎓 学生手册](./docs/User_Manual_For_Students.md)
+- [📖 教师手册](./docs/User_Manual_For_Teachers.md)
 
 还有更多问题吗？提交一个❓[issue](https://github.com/hust-open-atom-club/pwn.hust.college/issues)，或者通过我们的 💬[KOOK](https://kook.top/soUkFL) 联系我们。
 

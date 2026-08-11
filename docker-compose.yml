@@ -87,8 +87,6 @@ services:
       - DISCORD_CHANNEL_ID_AWARD=${DISCORD_CHANNEL_ID_AWARD}
       - DISCORD_CHANNEL_ID_WELCOME=${DISCORD_CHANNEL_ID_WELCOME}
       - DISCORD_CHANNEL_ID_NOTIFICATION=${DISCORD_CHANNEL_ID_NOTIFICATION}
-      - OLLAMA_BASE_URLS=${OLLAMA_BASE_URLS}
-      - OPENAI_API_BASE_URL=${OPENAI_API_BASE_URL}
     volumes:
       - ./data:/var/data
       - ./data/CTFd/logs:/var/log/CTFd
@@ -221,28 +219,6 @@ services:
       - certs:/etc/nginx/certs:rw
       - acme:/etc/acme.sh
       - /var/run/docker.sock:/var/run/docker.sock:ro
-
-  open-webui:
-    container_name: open-webui
-    build: /opt/sensai
-    environment:
-      - OLLAMA_BASE_URLS=${OLLAMA_BASE_URLS}
-      - OPENAI_API_BASE_URL=${OPENAI_API_BASE_URL}
-      - HF_ENDPOINT=https://hf-mirror.com
-    volumes:
-      - open-webui:/app/backend/data
-    networks:
-      user_network:
-        aliases:
-          - sensai
-        ipv4_address: 10.114.0.11
-    restart: always
-    depends_on:
-      - nginx
-    labels:
-      - "prometheus.io/scrape=true"
-      - "prometheus.io/port=8000"
-      - "prometheus.io/path=/metrics"
 
   # Prometheus 监控服务
   prometheus:
@@ -378,7 +354,6 @@ volumes:
   dhparam:
   certs:
   acme:
-  open-webui:
   prometheus_data:
   grafana_data:
   

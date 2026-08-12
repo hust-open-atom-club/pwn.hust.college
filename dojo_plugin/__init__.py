@@ -43,6 +43,16 @@ from .api import api
 class DojoChallenge(BaseChallenge):
     id = "dojo"
     name = "dojo"
+    templates = {
+        "create": "/plugins/challenges/assets/create.html",
+        "update": "/plugins/challenges/assets/update.html",
+        "view": "/plugins/challenges/assets/view.html",
+    }
+    scripts = {
+        "create": "/plugins/challenges/assets/create.js",
+        "update": "/plugins/challenges/assets/update.js",
+        "view": "/plugins/challenges/assets/view.js",
+    }
     challenge_model = Challenges
 
     @classmethod

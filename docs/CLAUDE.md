@@ -12,9 +12,9 @@ Default working branch is `hustsec_dev` (not `master`/`main`). Docs live in `doc
 
 ### Everything runs inside the `dojo` container
 
-`Dockerfile` (root) builds an Ubuntu 22.04 image that clones CTFd 3.6.0 into `/opt/CTFd`, clones `sensai` (the AI-TA fork of Open WebUI) into `/opt/sensai`, installs Docker CE inside, and copies this repo to `/opt/pwn.college`. `CMD ["dojo", "start"]` runs `dojo sync`, then `dojo-init`, then `systemd`, which drives `pwn.college.service` (a `docker compose up` defined in `docker-compose.yml`).
+`Dockerfile` (root) builds an Ubuntu 22.04 image that clones CTFd 3.6.0 into `/opt/CTFd`, installs Docker CE inside, and copies this repo to `/opt/pwn.college`. `CMD ["dojo", "start"]` runs `dojo sync`, then `dojo-init`, then `systemd`, which drives `pwn.college.service` (a `docker compose up` defined in `docker-compose.yml`).
 
-Inner compose stack: `ctfd` (the patched CTFd), `db` (mariadb 10.4), `cache` (redis), `sshd`, `nginx` (nginxproxy/nginx-proxy + acme-companion), `open-webui` (sensai), `prometheus`, `grafana`, plus node/mysql/redis/nginx exporters. Containers share a custom `user_network` bridge (`10.114.0.0/16`), and per-user challenge containers are launched onto the same network by the plugin via the host Docker socket that is bind-mounted into `ctfd`.
+Inner compose stack: `ctfd` (the patched CTFd), `db` (mariadb 10.4), `cache` (redis), `sshd`, `nginx` (nginxproxy/nginx-proxy + acme-companion), `prometheus`, `grafana`, plus node/mysql/redis/nginx exporters. Containers share a custom `user_network` bridge (`10.114.0.0/16`), and per-user challenge containers are launched onto the same network by the plugin via the host Docker socket that is bind-mounted into `ctfd`.
 
 `dojo-init` runs before systemd and is **idempotent** — it only defines config variables that aren't already set, so it's safe to re-run:
 
@@ -30,14 +30,14 @@ The platform is implemented as a **CTFd plugin** mounted read-only at `/opt/CTFd
 
 - Registers a `DojoChallenge` class and a `DojoFlag` class. Flags are HMAC-signed per `(account_id, challenge_id)` — see `DojoFlag.compare` and `utils.unserialize_user_flag`. There is no static flag table; users get personal flags.
 - Overrides several CTFd view functions (`views.static_html`, `views.settings`, `challenges.listing`) and deletes the built-in scoreboard/users blueprints — the plugin replaces them entirely.
-- Registers blueprints for: `dojos`, `dojo`, `workspace`, `desktop`, `sso` (HUST SSO), `users`, `course`, `writeups`, `belts`, `kook`, `discord`, `sensai`, plus the REST API blueprint at `/pwncollege_api/v1`.
+- Registers blueprints for: `dojos`, `dojo`, `workspace`, `desktop`, `sso` (HUST SSO), `users`, `course`, `writeups`, `belts`, `kook`, `discord`, plus the REST API blueprint at `/pwncollege_api/v1`.
 - Wraps WSGI with `DispatcherMiddleware` to expose `/metrics` for Prometheus. `prometheus_metrics.py` adds request/solve/login counters.
 - Patches CTFd email (adds `Date` header) and adds a `hidden` field to `UserSchema`.
 - `dojo_plugin/config.py` calls `bootstrap()` on load: hardcodes `ctf_name`, `user_mode=users`, sets `ctf_theme=dojo_theme`, and creates an `admin/admin` admin on first run. **Change the admin password after first deploy.**
 
 The plugin follows a layered structure:
 
-- `pages/` — Flask blueprints for HTML views (dojos, workspace, desktop, sso, kook, discord, sensai, course, writeups, belts, users, settings, index)
+- `pages/` — Flask blueprints for HTML views (dojos, workspace, desktop, sso, kook, discord, course, writeups, belts, users, settings, index)
 - `api/v1/` — REST API blueprint at `/pwncollege_api/v1` (`docker.py` starts challenge containers, `scoreboard.py`, `belts.py`, `dojo.py`, `discord.py`, `sso_login.py`, …)
 - `utils/` — business logic: flag serialization (`serialize_user_flag`/`unserialize_user_flag`), markdown rendering, dojo loading (`load_dojo`), firewall, seccomp, award tracking, IP addressing
 - `models/` — SQLAlchemy models: `Dojos`, `DojoChallenges`, `Belts`, `Emojis`, `DojoMembers`, `DojoAdmins`
@@ -49,7 +49,7 @@ The plugin follows a layered structure:
 
 The theme at `dojo_theme/` is a full CTFd theme with `templates/` (Jinja2 HTML) and `static/` (CSS/JS/images). It is bind-mounted read-only into the ctfd container alongside the plugin. Edit theme files, then `dojo sync` and restart ctfd — no rebuild needed.
 
-HUST-specific surface vs upstream pwncollege/dojo: `pages/sso_login.py` (HUST SSO), `pages/kook.py` + `utils/kook.py` (KOOK chat), `pages/discord.py` + `utils/discord.py` (Discord), `pages/sensai.py` (AI TA via Open WebUI), `prometheus_metrics.py`, plus the `monitoring/` Prometheus/Grafana stack. Many features are env-var gated via `docker-compose.yml` — absent credentials mean those integrations are inert.
+HUST-specific surface vs upstream pwncollege/dojo: `pages/sso_login.py` (HUST SSO), `pages/kook.py` + `utils/kook.py` (KOOK chat), `pages/discord.py` + `utils/discord.py` (Discord), `prometheus_metrics.py`, plus the `monitoring/` Prometheus/Grafana stack. Many features are env-var gated via `docker-compose.yml` — absent credentials mean those integrations are inert.
 
 ### Per-user challenge containers
 
@@ -61,7 +61,7 @@ When a user starts a challenge, the plugin launches a container from the image b
 - Has seccomp widened by `dojo_plugin/config.py::create_seccomp` at bootstrap (allows `clone`, `setns`, `unshare`, `sethostname`, plus specific `personality()` flags for `READ_IMPLIES_EXEC`/`ADDR_NO_RANDOMIZE`).
 - Auto-stops after `sleep 6h`.
 
-Outbound traffic from user containers is firewalled by `iptables` rules set in `dojo-init` (allowlist in `user_firewall.allowed`, plus explicit ACCEPT for the sensai container at `10.114.0.11`).
+Outbound traffic from user containers is firewalled by `iptables` rules set in `dojo-init` (allowlist in `user_firewall.allowed`).
 
 The `challenge/` directory builds this image. Key contents:
 
@@ -148,7 +148,7 @@ Test dojo YAML specs live in `test/dojos/` — these are loaded as fixtures by `
   - **Sizing**: `DOJO_CHALLENGE` (`challenge-nano`|`micro`|`mini`|`full` — controls which tools are baked into the challenge image), `DOJO_ENV` (`development` uses Flask dev server; anything else uses gunicorn), `UBUNTU_VERSION` (default `22.04`)
   - **Network**: `INTERNET_FOR_ALL` (`True`/`False` — controls outbound network access for user containers)
   - **Tool flags**: `INSTALL_GDB`, `INSTALL_GHIDRA`, `INSTALL_RADARE2`, `INSTALL_KERNEL`, `INSTALL_DESKTOP`, etc. — all default to `no` except `INSTALL_DESKTOP=yes`
-  - **Integrations**: `KOOK_*` (KOOK chat), `DISCORD_*` (Discord), `OLLAMA_BASE_URLS` / `OPENAI_API_BASE_URL` (sensai AI TA) — absent credentials make these integrations inert
+  - **Integrations**: `KOOK_*` (KOOK chat), `DISCORD_*` (Discord) — absent credentials make these integrations inert
 - `dojo_plugin` and `dojo_theme` are **bind-mounted read-only** into the ctfd container (`docker-compose.yml`). Edit files on the host, then `dojo sync` (or restart ctfd) — no rebuild needed for plugin/theme-only changes. Changes under `ctfd/` or `challenge/` do require rebuild (`dojo compose up -d --build`).
 - The `dojo/dojo` bash dispatcher is a simple `case` statement over `$ACTION` (`start`, `sync`, `update`, `compose`, `flask`, `db`, `enter`, `backup`, `restore`, `logs`, `wait`). It sources `data/config.env` at startup and shells out to `docker exec`.
 - The plugin assumes CTFd 3.6.0 pinned in `Dockerfile` (`--branch 3.6.0`); do not bump without auditing `dojo_plugin/__init__.py` for removed/renamed CTFd view functions.

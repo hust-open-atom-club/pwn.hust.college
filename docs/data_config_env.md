@@ -11,7 +11,7 @@ data/config.env
 * 平台运行环境（如 `production` 或 `development`）
 * 系统依赖与工具安装选项
 * 服务端口与访问主机配置
-* 与外部服务（如 KOOK、OpenAI API）的对接参数
+* 与外部服务（如 KOOK）的对接参数
 
 文件内容大致如下所示：
 
@@ -39,7 +39,6 @@ DISCORD_GUILD_ID=""
 DISCORD_CHANNEL_ID_AWARD=""
 DISCORD_CHANNEL_ID_WELCOME=""
 DISCORD_CHANNEL_ID_NOTIFICATION=""
-OPENAI_API_BASE_URL=""
 ```
 
 ## pwn.hust.college 平台 KOOK 配置说明

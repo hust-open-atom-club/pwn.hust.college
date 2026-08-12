@@ -37,7 +37,6 @@ from .pages.belts import belts
 from .pages.index import static_html_override
 from .pages.kook import kook
 from .pages.discord import discord
-from .pages.sensai import sensai
 from .api import api
 
 
@@ -150,8 +149,7 @@ def load(app):
     app.register_blueprint(kook)
     app.register_blueprint(discord)
     app.register_blueprint(api, url_prefix="/pwncollege_api/v1")
-    app.register_blueprint(sensai)
-    
+
     # 初始化 Prometheus 指标
     init_metrics()
     

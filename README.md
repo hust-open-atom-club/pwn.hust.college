@@ -10,7 +10,7 @@
 
 ## 简介
 
-与 pwn.college 一样，我们的 pwn.hust.college 道场基础设施基于 [CTFd](https://github.com/CTFd/CTFd) 进行构建。CTFd 提供了用户认证、题目管理、flag 验证等功能，本仓库也对其功能进行了扩展，以创建一个结构化、可扩展的网络安全训练环境。此外，pwn.hust.college 还提供了一些与华中科技大学（HUST）相关的功能，例如，华中科技大学单点登录（SSO）、AI 助教、KOOK 集成以及网络安全课程等。
+与 pwn.college 一样，我们的 pwn.hust.college 道场基础设施基于 [CTFd](https://github.com/CTFd/CTFd) 进行构建。CTFd 提供了用户认证、题目管理、flag 验证等功能，本仓库也对其功能进行了扩展，以创建一个结构化、可扩展的网络安全训练环境。此外，pwn.hust.college 还提供了一些与华中科技大学（HUST）相关的功能，例如，华中科技大学单点登录（SSO）、KOOK 集成以及网络安全课程等。
 
 - [📜 历史](./docs/history.md)
 - [🏛️ 架构](./docs/architecture.md)

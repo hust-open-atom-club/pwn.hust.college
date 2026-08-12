@@ -231,7 +231,10 @@ FROM builder-gdb-${INSTALL_GDB} AS builder-gdb
 FROM essentials AS builder-code-server
 
 RUN <<EOF
-    curl -fsSL https://gitee.com/mirrors/code-server/raw/main/install.sh | /bin/sh /dev/stdin
+    # Local customization (HUST): pin code-server to v4.103.2 (2025-08-25).
+    # Newer code-server versions moved @vscode/ripgrep/bin/rg (now bundled in the
+    # Copilot extension), which breaks the rg wrapper steps below.
+    curl -fsSL https://gitee.com/mirrors/code-server/raw/main/install.sh | VERSION=4.103.2 /bin/sh /dev/stdin
     mkdir -p /opt/code-server/extensions
     wget -O /tmp/ms-vscode-cpptools.vsix 'https://github.com/microsoft/vscode-cpptools/releases/download/v1.20.5/cpptools-linux.vsix'    
     code-server --extensions-dir=/opt/code-server/extensions \

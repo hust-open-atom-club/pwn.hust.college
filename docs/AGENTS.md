@@ -6,6 +6,8 @@ This file provides guidance to AI coding agents when working with code in this r
 
 `pwn.hust.college` is a HUST-customized, independently maintained fork of the pwn.college DOJO platform. It is a CTFd-based cybersecurity training environment that runs inside an outer privileged Docker container named `dojo`. That outer container runs Docker-in-Docker and uses `docker-compose.yml` to start the platform services and per-user challenge workspaces.
 
+This repository originated from upstream `pwncollege/dojo`. When behavior, architecture, or historical intent is unclear, it is acceptable to consult the upstream implementation for context, but treat this fork as the source of truth for current behavior.
+
 The default development branch is `hustsec_dev`. Do not assume `master` or `main` is the target branch.
 
 ## Common Development Commands
@@ -158,6 +160,7 @@ Important variables:
 - `ctfd/0001-use-pycountry-to-replace-self-generated-country-list.patch` is applied at CTFd container startup. If it fails, CTFd will not boot.
 - `dojo_plugin` and `dojo_theme` are mounted read-only into CTFd.
 - `dojo-init` is safe to rerun.
+- This fork is maintained independently, but upstream `pwncollege/dojo` can be used as a reference when local intent is ambiguous.
 - Avoid unrelated refactors when changing platform behavior.
 - Preserve HUST-specific behavior unless the task explicitly asks to remove it.
 

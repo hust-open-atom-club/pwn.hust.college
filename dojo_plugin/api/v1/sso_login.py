@@ -18,7 +18,7 @@ class Settings:
         self.CAS_EXTRA_LOGIN_PARAMS = None
         self.CAS_IGNORE_REFERER = False
         self.CAS_LOGOUT_COMPLETELY = True
-        self.CAS_REDIRECT_URL = 'http://pwn.cse.hust.edu.cn/cas-login/'
+        self.CAS_REDIRECT_URL = 'https://pwn.cse.hust.edu.cn/cas-login/'
         self.CAS_RETRY_LOGIN = False
         self.CAS_VERSION = '2'
 
@@ -102,8 +102,10 @@ class CASBackend(object):
     def authenticate(self,ticket):
         service = settings.CAS_REDIRECT_URL
         username = _verify_cas2(ticket, service)
+        if username is None:
+            return None
         user = Users.query.filter_by(oauth_id=username[1:]).first()
-        
+
         if user :
             return user
         else:

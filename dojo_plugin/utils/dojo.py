@@ -326,7 +326,7 @@ def dojo_clone(repository_type, repository, private_key):
     clone_dir = tempfile.TemporaryDirectory(dir=tmp_dojos_dir)  # TODO: ignore_cleanup_errors=True
 
     key_file = tempfile.NamedTemporaryFile("w")
-    key_file.write(private_key)
+    key_file.write(private_key.strip() + "\n")
     key_file.flush()
 
     if repository_type == "github":
@@ -351,7 +351,7 @@ def dojo_clone(repository_type, repository, private_key):
 
 def dojo_git_command(dojo, *args):
     key_file = tempfile.NamedTemporaryFile("w")
-    key_file.write(dojo.private_key)
+    key_file.write(dojo.private_key.strip() + "\n")
     key_file.flush()
 
     return subprocess.run(["git", "-C", str(dojo.path), *args],

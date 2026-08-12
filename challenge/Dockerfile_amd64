@@ -119,7 +119,7 @@ EOF
 
 ENV RUSTUP_HOME=/root/.rustup
 ENV CARGO_HOME=/root/.cargo
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.81.0
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.85.0
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN . /root/.cargo/env && rustc --version && cargo --version
 

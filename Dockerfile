@@ -23,7 +23,7 @@ RUN echo '{ "data-root": "/opt/pwn.college/data/docker" }' > /etc/docker/daemon.
 RUN docker buildx install
 RUN git clone --branch 3.6.0 https://github.com/CTFd/CTFd /opt/CTFd
 
-RUN wget -O /etc/docker/seccomp.json https://gitee.com/mirrors/moby/raw/master/profiles/seccomp/default.json
+RUN wget -O /etc/docker/seccomp.json https://raw.githubusercontent.com/moby/profiles/main/seccomp/default.json
 
 RUN ln -s /opt/pwn.college/etc/systemd/system/pwn.college.service /etc/systemd/system/pwn.college.service
 RUN ln -s /opt/pwn.college/etc/systemd/system/pwn.college.backup.service /etc/systemd/system/pwn.college.backup.service

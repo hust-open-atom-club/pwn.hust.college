@@ -5,6 +5,8 @@ from logging import getLogger
 import requests
 from flask import url_for
 from CTFd.cache import cache
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from ..config import DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DISCORD_BOT_TOKEN, DISCORD_GUILD_ID
 
@@ -12,6 +14,20 @@ from ..config import DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DISCORD_BOT_TOKEN
 OAUTH_AUTHORIZE_ENDPOINT = "https://discord.com/oauth2/authorize"
 OAUTH_TOKEN_ENDPOINT = "https://discord.com/api/oauth2/token"
 API_ENDPOINT = "https://discord.com/api/v9"
+
+# Retry transient connection-level failures (e.g. connection reset by peer
+# when the path to Discord is intermittently blocked) - 3 attempts, 0.5/1/2s backoff.
+# 429/5xx are intentionally NOT retried: 429 keeps the original drop semantics,
+# and non-idempotent replay risk is accepted since a reset means the request
+# almost certainly never reached Discord.
+_session = requests.Session()
+_session.mount("https://", HTTPAdapter(max_retries=Retry(
+    total=3,
+    connect=3,
+    read=3,
+    backoff_factor=0.5,
+    allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE", "HEAD"]),
+)))
 
 
 class DiscordChannels(Enum):
@@ -23,7 +39,7 @@ class DiscordChannels(Enum):
 def discord_request(endpoint, method="GET", **kwargs):
     logger = getLogger(__name__)
     headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}"}
-    response = requests.request(method, f"{API_ENDPOINT}{endpoint}", headers=headers, **kwargs)
+    response = _session.request(method, f"{API_ENDPOINT}{endpoint}", headers=headers, **kwargs)
     if response.status_code == 429:
         retry_after = response.json().get("retry_after", 1)
         logger.warning(f"Discord rate limited on {method} {endpoint}, retry_after={retry_after}s. Dropping request.")
@@ -58,13 +74,13 @@ def get_discord_id(auth_code):
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
     }
-    response = requests.post(OAUTH_TOKEN_ENDPOINT, data=data, headers=headers)
+    response = _session.post(OAUTH_TOKEN_ENDPOINT, data=data, headers=headers, timeout=10)
     access_token = response.json()["access_token"]
 
     headers = {
         "Authorization": f"Bearer {access_token}",
     }
-    response = requests.get(f"{API_ENDPOINT}/users/@me", headers=headers)
+    response = _session.get(f"{API_ENDPOINT}/users/@me", headers=headers, timeout=10)
     discord_id = response.json()["id"]
     return discord_id
 

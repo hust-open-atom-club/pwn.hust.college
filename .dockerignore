@@ -1,1 +1,25 @@
+# Runtime data
 data/
+
+# Version-control and CI metadata
+.git/
+.github/
+.gitignore
+
+# macOS and editor files
+**/.DS_Store
+**/.idea/
+**/.vscode/
+**/*.swp
+**/*~
+
+# Python caches and local environments
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.coverage
+**/htmlcov/
+**/.venv/
+**/venv/

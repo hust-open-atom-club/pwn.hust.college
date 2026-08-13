@@ -1,14 +1,14 @@
 # 部署 (Deployment)
 
 ```sh
-# 设置 Docker CE 的下载镜像源为华中科技大学镜像站，并执行官方安装脚本
-export DOWNLOAD_URL="https://mirrors.hust.edu.cn/docker-ce" && curl -fsSL https://get.docker.com | /bin/sh
-# 从 GitHub 克隆 dojo 的源代码
+curl -fsSL https://get.docker.com | /bin/sh
 git clone https://github.com/hust-open-atom-club/pwn.hust.college.git
-# 使用克隆下来的 Dockerfile 构建一个名为 pwncollege/dojo 的 Docker 镜像
-docker build -t pwncollege/dojo dojo
-# 运行 dojo 容器
-docker run --privileged -d -v "$(pwd)/dojo:/opt/pwn.college:shared" -p 22:22 -p 80:80 -p 443:443 --name dojo pwncollege/dojo
+cd pwn.hust.college
+docker build -t pwncollege/dojo .
+docker run --privileged -d \
+  -v "$(pwd):/opt/pwn.college:shared" \
+  -p 22:22 -p 80:80 -p 443:443 \
+  --name dojo pwncollege/dojo
 ```
 
 这个过程会运行初始设置，包括构建挑战所用的 Docker 镜像。它会根据宿主机的硬件架构来构建镜像。
@@ -92,9 +92,12 @@ docker rm dojo
 # 拉取最新的代码
 git pull
 # 重新构建镜像
-docker build -t pwncollege/dojo dojo
+docker build -t pwncollege/dojo .
 # 重新运行容器
-sudo docker run --privileged -d -v "$(pwd)/dojo:/opt/pwn.college:shared" -p 22:22 -p 80:80 -p 443:443 --name dojo pwncollege/dojo
+sudo docker run --privileged -d \
+  -v "$(pwd):/opt/pwn.college:shared" \
+  -p 22:22 -p 80:80 -p 443:443 \
+  --name dojo pwncollege/dojo
 ```
 
 这种更新方式会在 dojo 重建期间导致服务中断。

@@ -14,10 +14,9 @@
 
 - [📜 历史](./docs/history.md)
 - [🏛️ 架构](./docs/architecture.md)
-- [🚀 常规部署](./docs/general_deployment.md)
-- [🏆 pwn.hust.college 部署](./docs/pwnhustcollege_deployment.md)
-- [🚩 Challenge](./docs/challenge.md)
+- [🚀 部署](./docs/deployment.md)
 - [💻 开发](./docs/development.md)
+- [🚩 挑战关卡](./docs/challenge.md)
 
 还有更多问题吗？提交一个❓[issue](https://github.com/hust-open-atom-club/pwn.hust.college/issues)，或者通过我们的 💬[KOOK](https://kook.top/soUkFL) 联系我们。
 
@@ -25,6 +24,7 @@
 
 - [慕冬亮](https://github.com/mudongliang)
 - [丁鹏宇](https://github.com/wumingzhilian)
+- [袁令羲](https://github.com/mevinagrise)
 - [胡崟昊](https://github.com/huyinhao)
 - [黄宇浩](https://github.com/CeS-3)
 

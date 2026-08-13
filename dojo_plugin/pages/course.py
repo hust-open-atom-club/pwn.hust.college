@@ -12,7 +12,6 @@ from CTFd.utils.decorators import authed_only, admins_only, ratelimit
 from ..models import DojoChallenges, DojoUsers, DojoStudents, DojoModules, DojoStudents
 from ..utils import module_visible, module_challenges_visible, is_dojo_admin
 from ..utils.dojo import dojo_route
-from .writeups import WriteupComments, writeup_weeks, all_writeups
 
 
 course = Blueprint("course", __name__)

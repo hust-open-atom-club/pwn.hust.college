@@ -76,6 +76,18 @@ def main():
             _, status = os.wait()
             if simple or status == 0:
                 break
+            # The user typing `exit` in an interactive bash exits with the
+            # status of the last command (e.g. 127 after a typo), so a nonzero
+            # status alone does not mean the connection was lost. Reconnect
+            # only when the challenge container is no longer running; a
+            # session that ended while the container is still running was a
+            # deliberate shell exit.
+            try:
+                container = client.containers.get(container_name)
+                if container.status == "running":
+                    break
+            except docker.errors.NotFound:
+                pass
             print()
             print("\r", " " * 80, "\rConnecting", end="")
             time.sleep(0.5)

@@ -18,7 +18,7 @@
         <tbody>
           {% for user in users %}
           <tr>
-            <td><a href="/desktop/{{ user.id }}">{{ user.name }}</a></td>
+            <td><a href="{{ url_for('pwncollege_workspace.view_desktop', user=user.id) }}">{{ user.name }}</a></td>
           </tr>
           {% endfor %}
         </tbody>

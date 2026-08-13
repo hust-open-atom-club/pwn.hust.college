@@ -223,6 +223,7 @@ services:
   # Prometheus 监控服务
   prometheus:
     container_name: prometheus
+    profiles: ["monitoring"]
     image: prom/prometheus:latest
     restart: always
     ports:
@@ -249,6 +250,7 @@ services:
   # Grafana 可视化服务
   grafana:
     container_name: grafana
+    profiles: ["monitoring"]
     image: grafana/grafana:latest
     restart: always
     environment:
@@ -272,6 +274,7 @@ services:
   # Node Exporter - 系统监控
   node-exporter:
     container_name: node-exporter
+    profiles: ["monitoring"]
     image: prom/node-exporter:latest
     restart: always
     ports:
@@ -295,6 +298,7 @@ services:
   # MySQL Exporter - 数据库监控
   mysql-exporter:
     container_name: mysql-exporter
+    profiles: ["monitoring"]
     image: prom/mysqld-exporter:latest
     restart: always
     ports:
@@ -313,6 +317,7 @@ services:
   # Redis Exporter - 缓存监控
   redis-exporter:
     container_name: redis-exporter
+    profiles: ["monitoring"]
     image: oliver006/redis_exporter:latest
     restart: always
     ports:
@@ -331,6 +336,7 @@ services:
   # Nginx Exporter - Web服务器监控
   nginx-exporter:
     container_name: nginx-exporter
+    profiles: ["monitoring"]
     image: nginx/nginx-prometheus-exporter:latest
     restart: always
     ports:

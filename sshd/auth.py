@@ -32,7 +32,10 @@ def main():
     enter_path = pathlib.Path(__file__).parent.resolve() / "enter.py"
 
     connect_arg = f"-h{DB_HOST}" if DB_HOST else ""
-    result = subprocess.run(["mysql", connect_arg, f"-p{DB_PASS}", f"-u{DB_USER}", f"-D{DB_NAME}", "-sNe", 'select value, user_id from ssh_keys;'], stdout=subprocess.PIPE)
+    # --skip-ssl: this query runs over the internal compose network; disable SSL
+    # to avoid failure when the MariaDB client requires SSL but the server does
+    # not support it (which would break SSH public key authentication).
+    result = subprocess.run(["mysql", connect_arg, f"-p{DB_PASS}", f"-u{DB_USER}", f"-D{DB_NAME}", "--skip-ssl", "-sNe", 'select value, user_id from ssh_keys;'], stdout=subprocess.PIPE)
     if result.returncode != 0:
         error(f"Error: db query exited with code '{result.returncode}'")
 

@@ -85,16 +85,22 @@ def get_discord_id(auth_code):
     return discord_id
 
 
-@cache.memoize(timeout=3600)
 def get_discord_member(discord_id):
+    # Only successful lookups are cached (1h): a transient network failure
+    # must NOT pin "no member" for an hour, or the settings page would keep
+    # showing a bare Discord ID until the cache expires.
     if not DISCORD_BOT_TOKEN or not discord_id:
         return
+    member = cache.get(f"discord_member:{discord_id}")
+    if member is not None:
+        return member
     try:
         result = guild_request(f"/members/{discord_id}")
     except requests.exceptions.RequestException:
         return
-    if result.get("message") == "Unknown Member":
+    if not result or result.get("message") == "Unknown Member":
         return None
+    cache.set(f"discord_member:{discord_id}", result, timeout=3600)
     return result
 
 

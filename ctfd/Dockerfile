@@ -1,7 +1,11 @@
 FROM python:3.9-slim-buster AS build
 WORKDIR /opt/CTFd
 
-RUN sed -i.bak 's|https\?://archive.ubuntu.com|http://mirrors.hust.edu.cn|g' /etc/apt/sources.list
+RUN sed -i \
+        -e 's|deb.debian.org/debian-security|archive.debian.org/debian-security|g' \
+        -e 's|deb.debian.org/debian|archive.debian.org/debian|g' \
+        /etc/apt/sources.list \
+    && printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99archive
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
@@ -25,7 +29,11 @@ COPY . /opt/CTFd
 FROM python:3.9-slim-buster AS release
 WORKDIR /opt/CTFd
 
-RUN sed -i.bak 's|https\?://archive.ubuntu.com|http://mirrors.hust.edu.cn|g' /etc/apt/sources.list
+RUN sed -i \
+        -e 's|deb.debian.org/debian-security|archive.debian.org/debian-security|g' \
+        -e 's|deb.debian.org/debian|archive.debian.org/debian|g' \
+        /etc/apt/sources.list \
+    && printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99archive
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libffi6 \

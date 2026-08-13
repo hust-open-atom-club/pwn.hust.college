@@ -1,23 +1,15 @@
 FROM ubuntu:22.04
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 ENV LC_CTYPE=C.UTF-8
 
-RUN chmod 1777 /tmp
-RUN sed -i.bak 's|https\?://archive.ubuntu.com|http://mirrors.hust.edu.cn|g' /etc/apt/sources.list
-RUN apt-get update && \
-    apt-get install -y \
-        build-essential \
-        git \
-        curl \
-        wget \
-        jq \
-        iproute2 \
-        iputils-ping \
-        host \
-        htop
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
-RUN export DOWNLOAD_URL="https://mirrors.tuna.tsinghua.edu.cn/docker-ce" && curl -fsSL https://get.docker.com | /bin/sh
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential ca-certificates curl git host htop iproute2 iputils-ping jq wget \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://get.docker.com | /bin/sh
 RUN echo '{ "data-root": "/opt/pwn.college/data/docker" }' > /etc/docker/daemon.json
 
 RUN docker buildx install

@@ -33,8 +33,14 @@ location /monitoring/ {
     proxy_buffering off;
     proxy_http_version 1.1;
 
-    # 代理并移除前缀
-    proxy_pass http://grafana:3000/monitoring/;
+    # Resolve "grafana" at request time (via a variable) instead of at reload:
+    # grafana runs behind the 'monitoring' compose profile, and a static
+    # proxy_pass makes nginx resolve the hostname on every reload, which fails
+    # with 'host not found in upstream "grafana"' when the profile is disabled.
+    # With a variable, reload always succeeds; this path returns 502 while
+    # grafana is not running and works normally once the profile is enabled.
+    set $grafana_upstream grafana;
+    proxy_pass http://$grafana_upstream:3000/monitoring/;
 }
 
 location /nginx_status {

@@ -1,6 +1,6 @@
 FROM ubuntu:22.04
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 ENV LC_CTYPE=C.UTF-8
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]

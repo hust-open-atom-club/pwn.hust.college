@@ -45,7 +45,7 @@ services:
       - /bin/sh
       - -c
       - |
-        patch  -i /opt/pwn.college/ctfd/0001-use-pycountry-to-replace-self-generated-country-list.patch /opt/CTFd/CTFd/utils/countries/__init__.py
+        patch -i /opt/CTFd/0001-use-pycountry-to-replace-self-generated-country-list.patch /opt/CTFd/CTFd/utils/countries/__init__.py
         if [ "$DOJO_ENV" != "development" ]; then
           ./docker-entrypoint.sh;
         else

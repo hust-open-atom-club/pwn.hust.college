@@ -32,7 +32,6 @@ from .pages.users import users
 from .pages.sso_login import sso
 from .pages.settings import settings_override
 from .pages.course import course
-from .pages.writeups import writeups
 from .pages.belts import belts
 from .pages.index import static_html_override
 from .pages.kook import kook
@@ -154,7 +153,6 @@ def load(app):
     app.register_blueprint(sso)
     app.register_blueprint(users)
     app.register_blueprint(course)
-    app.register_blueprint(writeups)
     app.register_blueprint(belts)
     app.register_blueprint(kook)
     app.register_blueprint(discord)

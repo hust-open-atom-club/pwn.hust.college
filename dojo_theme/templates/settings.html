@@ -133,44 +133,46 @@
 
         {% if discord_enabled %}
         <div class="tab-pane fade" id="discord" role="tabpanel">
+          {% if not discord_user %}
           <div class="text-center">
-            <img src="{{ url_for('views.themes', path='img/dojo/discord_logo.svg') }}" class="discord-avatar">
-            {% if discord_user %}
-              {% if discord_member %}
-                <h2>{{ discord_member["user"]["username"] }}</h2>
-              {% else %}
-                <h2>Discord ID: {{ discord_user.discord_id }}</h2>
-                <small class="text-muted">已绑定</small>
-              {% endif %}
-              <div style="margin-top: 24px;">
-                <a href="/discord/connect" class="btn btn-primary btn-lg">更换账户</a>
-                <a href="/discord/disconnect" class="btn btn-danger btn-lg" style="margin-left: 12px;">解除绑定</a>
-              </div>
-            {% else %}
-              <br>
-              <a href="/discord/connect" class="btn btn-primary">Connect Discord Account</a>
-            {% endif %}
+            <br>
+            <a href="/discord/connect" class="btn btn-primary">Connect Discord Account</a>
           </div>
+          {% else %}
+          <div class="text-center">
+            <img src="{{ url_for('views.themes', path='img/dojo/discord_logo.svg') }}" class="discord-avatar" style="margin-bottom: 16px;">
+            <h3>你的账户已经连接到Discord。</h3>
+            <div style="margin-bottom: 24px;">昵称: {{ (discord_member["nick"] or discord_member["user"]["global_name"] or discord_member["user"]["username"]) if discord_member else "Discord ID: " ~ discord_user.discord_id }}</div>
+            <div style="margin-top: 24px;">
+              <a href="/discord/connect" class="btn btn-primary btn-lg">更换账户</a>
+              <a href="/discord/disconnect" class="btn btn-danger btn-lg" style="margin-left: 12px;">解除绑定</a>
+            </div>
+          </div>
+          {% endif %}
         </div>
         {% endif %}
 
         <div class="tab-pane fade" id="kook" role="tabpanel">
           {% if not kook_user %}
-          <a href="{{ url_for('kook.kook_connect') }}">
-            <button class="btn btn-primary btn-lg">连接到KOOK</button>
-          </a>
-
+          <div class="text-center">
+            <a href="{{ url_for('kook.kook_connect') }}">
+              <button class="btn btn-primary btn-lg">连接到KOOK</button>
+            </a>
+          </div>
           {% else %}
-          <h3>你的账户已经连接到KOOK。</h3>
-          <div style="margin-bottom: 24px;">用户名: {{ kook_user.username }}</div>
-
-          <a href="{{ url_for('kook.kook_connect') }}">
-            <button class="btn btn-primary btn-lg">更换账户</button>
-          </a>
-
-          <a href="{{ url_for('kook.kook_disconnect') }}">
-            <button class="btn btn-primary btn-lg">解除绑定</button>
-          </a>
+          <div class="text-center">
+            <img src="{{ url_for('views.themes', path='img/dojo/kook_logo.png') }}" class="discord-avatar" style="margin-bottom: 16px; height: 55px; width: auto;">
+            <h3>你的账户已经连接到KOOK。</h3>
+            <div style="margin-bottom: 24px;">用户名: {{ kook_user.username }}</div>
+            <div style="margin-top: 24px;">
+              <a href="{{ url_for('kook.kook_connect') }}">
+                <button class="btn btn-primary btn-lg">更换账户</button>
+              </a>
+              <a href="{{ url_for('kook.kook_disconnect') }}" style="margin-left: 12px;">
+                <button class="btn btn-danger btn-lg">解除绑定</button>
+              </a>
+            </div>
+          </div>
           {% endif %}
         </div>
 

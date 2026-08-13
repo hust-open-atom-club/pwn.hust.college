@@ -6,7 +6,7 @@ ENV LC_CTYPE=C.UTF-8
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential curl git host htop iproute2 iputils-ping jq wget \
+        build-essential ca-certificates curl git host htop iproute2 iputils-ping jq wget \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://get.docker.com | /bin/sh

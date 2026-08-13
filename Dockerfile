@@ -13,7 +13,7 @@ RUN curl -fsSL https://get.docker.com | /bin/sh
 RUN echo '{ "data-root": "/opt/pwn.college/data/docker" }' > /etc/docker/daemon.json
 
 RUN docker buildx install
-ADD https://github.com/CTFd/CTFd.git#3.6.0 /opt/CTFd
+RUN git clone --branch 3.6.0 https://github.com/CTFd/CTFd /opt/CTFd
 
 RUN wget -O /etc/docker/seccomp.json https://raw.githubusercontent.com/moby/profiles/main/seccomp/default.json
 

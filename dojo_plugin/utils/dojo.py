@@ -12,6 +12,7 @@ import urllib.request
 import base64
 import logging
 import emoji
+import markupsafe
 
 import yaml
 import requests
@@ -36,7 +37,7 @@ NAME_REGEX = Regex(r"^[\S ]{1,128}$")
 IMAGE_REGEX = Regex(r"^[\S]{1,256}$")
 FILE_PATH_REGEX = Regex(r"^[A-Za-z0-9_][A-Za-z0-9-_./]*$")
 FILE_URL_REGEX = Regex(r"^https://www.dropbox.com/[a-zA-Z0-9]*/[a-zA-Z0-9]*/[a-zA-Z0-9]*/[a-zA-Z0-9.-_]*?rlkey=[a-zA-Z0-9]*&dl=1")
-INTERFACES_LIST = [Or({"name": Regex(r"[a-zA-Z]{1,32}"),"port": int},{"name": "SSH"})]
+INTERFACES_LIST = [Or({"name": Regex(r"^[a-zA-Z][a-zA-Z0-9 _-]{0,31}$"),"port": int},{"name": "SSH"})]
 DATE = Use(datetime.datetime.fromisoformat)
 
 ID_NAME_DESCRIPTION = {
@@ -281,14 +282,14 @@ def load_surveys(data, dojo_dir):
         survey_dir = dojo_dir / survey_data
         if data.get("survey", {}).get("src"):
             survey_path = survey_dir / data["survey"]["src"]
-            assert dojo_dir in survey_path.resolve().parents, f"Error: `{survey_path}` references path outside of the dojo"
+            assert dojo_dir in survey_path.resolve().parents, f"Error: `{markupsafe.escape(survey_path)}` references path outside of the dojo"
             setdefault_file(data["survey"], "data", survey_path)
             del data["survey"]["src"]
 
         for module_data in data.get("modules", []):
             if module_data.get("survey", {}).get("src"):
                 survey_path = survey_dir / module_data["survey"]["src"]
-                assert dojo_dir in survey_path.resolve().parents, f"Error: `{survey_path}` references path outside of the dojo"
+                assert dojo_dir in survey_path.resolve().parents, f"Error: `{markupsafe.escape(survey_path)}` references path outside of the dojo"
                 setdefault_file(module_data["survey"], "data", survey_path)
                 del module_data["survey"]["src"]
 
@@ -297,7 +298,7 @@ def load_surveys(data, dojo_dir):
                     continue
                 if challenge_data.get("survey", {}).get("src"):
                     survey_path = survey_dir / challenge_data["survey"]["src"]
-                    assert dojo_dir in survey_path.resolve().parents, f"Error: `{survey_path}` references path outside of the dojo"
+                    assert dojo_dir in survey_path.resolve().parents, f"Error: `{markupsafe.escape(survey_path)}` references path outside of the dojo"
                     setdefault_file(challenge_data["survey"], "data", survey_path)
                     del challenge_data["survey"]["src"]
 
@@ -327,7 +328,7 @@ def dojo_from_dir(dojo_dir, *, dojo=None):
     assert dojo_yml_path.exists(), "Missing file: `dojo.yml`"
 
     for path in dojo_dir.rglob("**"):
-        assert dojo_dir == path or dojo_dir in path.resolve().parents, f"Error: symlink `{path}` references path outside of the dojo"
+        assert dojo_dir == path or dojo_dir in path.resolve().parents, f"Error: symlink `{markupsafe.escape(path)}` references path outside of the dojo"
 
     data_raw = yaml.safe_load(dojo_yml_path.read_text())
     data = load_dojo_subyamls(data_raw, dojo_dir)
@@ -340,7 +341,7 @@ def dojo_from_spec(data, *, dojo_dir=None, dojo=None):
     try:
         dojo_data = DOJO_SPEC.validate(data)
     except SchemaError as e:
-        raise AssertionError(e)  # TODO: this probably shouldn't be re-raised as an AssertionError
+        raise AssertionError(markupsafe.escape(e))  # TODO: this probably shouldn't be re-raised as an AssertionError
 
     def assert_importable(o):
         assert o.importable, f"Import disallowed for {o}."
@@ -386,11 +387,13 @@ def dojo_from_spec(data, *, dojo_dir=None, dojo=None):
         if chal := Challenges.query.filter_by(category=dojo.hex_dojo_id, name=f"{module_id}:{challenge_id}").first():
             return chal
         if transfer:
-            assert dojo.official or (is_admin() and not Dojos.from_id(dojo.id).first())
-            old_dojo_id, old_module_id, old_challenge_id = transfer["dojo"], transfer["module"], transfer["challenge"]
+            old_dojo_id = transfer.get("dojo", dojo.reference_id)
+            old_module_id = transfer.get("module", module_id)
+            old_challenge_id = transfer["challenge"]
             old_dojo = Dojos.from_id(old_dojo_id).first()
+            assert old_dojo and (old_dojo.dojo_id == dojo.dojo_id or dojo.official or (is_admin() and not Dojos.from_id(dojo.id).first()))
             old_challenge = Challenges.query.filter_by(category=old_dojo.hex_dojo_id, name=f"{old_module_id}:{old_challenge_id}").first()
-            assert old_dojo and old_challenge, f"unable to find source dojo/module/challenge in database for {old_dojo_id}:{old_module_id}:{old_challenge_id}"
+            assert old_challenge, f"unable to find source dojo/module/challenge in database for {old_dojo_id}:{old_module_id}:{old_challenge_id}"
             old_challenge.category = dojo.hex_dojo_id
             old_challenge.name = f"{module_id}:{challenge_id}"
             return old_challenge
@@ -586,7 +589,7 @@ def _assert_no_symlinks(dojo_dir):
     if not isinstance(dojo_dir, pathlib.Path):
         dojo_dir = pathlib.Path(dojo_dir)
     for path in dojo_dir.rglob("*"):
-        assert dojo_dir == path or dojo_dir in path.resolve().parents, f"Error: symlink `{path}` references path outside of the dojo"
+        assert dojo_dir == path or dojo_dir in path.resolve().parents, f"Error: symlink `{markupsafe.escape(path)}` references path outside of the dojo"
 
 
 def dojo_clone(repository, private_key):
@@ -667,7 +670,7 @@ def dojo_create(user, repository, public_key, private_key, spec):
         dojo_path.mkdir()  # TODO: ignore_cleanup_errors=True
 
     except subprocess.CalledProcessError as e:
-        deploy_url = f"https://github.com/{repository}/settings/keys"
+        deploy_url = f"https://github.com/{markupsafe.escape(repository)}/settings/keys"
         raise RuntimeError(f"Failed to clone: <a href='{deploy_url}' target='_blank'>add deploy key</a>")
 
     except IntegrityError:

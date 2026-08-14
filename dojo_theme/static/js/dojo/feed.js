@@ -121,10 +121,10 @@
         return link;
     }
     
-    function createUserElement(userName, belt, emojis) {
+    function createUserElement(userName, userId, belt, emojis) {
         const container = document.createElement('strong');
         const link = document.createElement('a');
-        link.href = `/hacker/${userName}`;
+        link.href = `/hacker/${userId}`;
         
         if (belt) {
             const img = document.createElement('img');
@@ -163,7 +163,7 @@
         const fragment = document.createDocumentFragment();
         
         if (data.dojo_name || data.dojo_id) {
-            const dojoLink = createLink(`/dojos/${data.dojo_id}`, data.dojo_name || data.dojo_id);
+            const dojoLink = createLink(`/${data.dojo_id}`, data.dojo_name || data.dojo_id);
             fragment.appendChild(dojoLink);
             fragment.appendChild(document.createTextNode(' / '));
         }
@@ -210,7 +210,7 @@
         
         const userElem = card.querySelector('.event-user');
         if (userElem) {
-            userElem.replaceWith(createUserElement(event.user_name, event.user_belt, event.user_emojis));
+            userElem.replaceWith(createUserElement(event.user_name, event.user_id, event.user_belt, event.user_emojis));
         }
         
         return card;
@@ -258,7 +258,7 @@
                 const small = document.createElement('small');
                 small.className = 'text-muted';
                 small.appendChild(document.createTextNode('Completed '));
-                small.appendChild(createLink(`/dojos/${event.data.dojo_id}`, event.data.dojo_name || event.data.dojo_id));
+                small.appendChild(createLink(`/${event.data.dojo_id}`, event.data.dojo_name || event.data.dojo_id));
                 
                 detailElem.appendChild(br);
                 detailElem.appendChild(small);
@@ -288,7 +288,7 @@
                 const small = document.createElement('small');
                 small.className = 'text-muted';
                 small.appendChild(document.createTextNode('Completed '));
-                small.appendChild(createLink(`/dojos/${event.data.dojo_id}`, event.data.dojo_name || event.data.dojo_id));
+                small.appendChild(createLink(`/${event.data.dojo_id}`, event.data.dojo_name || event.data.dojo_id));
                 
                 detailElem.appendChild(br);
                 detailElem.appendChild(small);
@@ -303,7 +303,7 @@
             const card = createEventFromTemplate(EVENT_TEMPLATES.dojo_update, event);
             
             const dojoLink = card.querySelector('.event-dojo-link');
-            dojoLink.href = `/dojos/${event.data.dojo_id}`;
+            dojoLink.href = `/${event.data.dojo_id}`;
             dojoLink.textContent = event.data.dojo_name || event.data.dojo_id;
             
             const detailElem = card.querySelector('.event-update-detail');

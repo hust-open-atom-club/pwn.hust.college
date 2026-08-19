@@ -1,11 +1,13 @@
 from urllib.parse import urlencode, urljoin
 from urllib.request import urlopen, Request
 from urllib.error import URLError
+import re
 
 from CTFd.models import  Users, db
 from CTFd.utils import user as current_user
 from CTFd.utils.helpers import error_for, get_errors, markup
 from CTFd.utils.logging import log
+from CTFd.plugins.dojo_plugin.models import UserProfiles
 
 
 from xml.etree import ElementTree
@@ -49,13 +51,19 @@ def _verify_cas2(ticket, service):
         return None
 
 
+def _sso_to_oauth_id(student_id):
+    """CAS studentID -> oauth_id：带字母前缀（U/M/D...）去前缀，纯数字全量保留；非法返回 None。"""
+    m = re.fullmatch(r"(?i)([a-z])?(\d+)", student_id.strip())
+    return int(m.group(2)) if m else None
+
+
 def register_sso(studentID):
     errors = get_errors()
     name = studentID.strip()
     email_address = studentID.strip().lower()+"@hust.edu.cn"
     password = ""
     bracket_id = None
-    oauth_id = int(studentID[1:])
+    oauth_id = _sso_to_oauth_id(studentID)
     # website = request.form.get("website")
     # affiliation = request.form.get("affiliation")
     # country = request.form.get("country")
@@ -74,6 +82,9 @@ def register_sso(studentID):
         errors.append("That user name is already taken")
     if emails:
         errors.append("That email has already been used")
+
+    if errors or oauth_id is None:
+        return None
 
     user = Users(
         name=name,
@@ -104,14 +115,27 @@ class CASBackend(object):
         username = _verify_cas2(ticket, service)
         if username is None:
             return None
-        user = Users.query.filter_by(oauth_id=username[1:]).first()
+        oauth_id = _sso_to_oauth_id(username)
+        user = Users.query.filter_by(oauth_id=oauth_id).first()
 
-        if user :
+        if user:
             return user
-        else:
-            # user will have an "unusable" password
-            user = register_sso(username)
-            return user
+        if oauth_id is None:
+            return None
+        # 绑定分支：同 email 既有账号（普通注册/管理员建号/历史截断）-> 补绑 oauth_id 并置 SSO 标志
+        existing = Users.query.filter_by(
+            email=username.strip().lower() + "@hust.edu.cn"
+        ).first()
+        if existing:
+            existing.oauth_id = oauth_id
+            profile = UserProfiles.query.filter_by(user_id=existing.id).first()
+            if profile:
+                profile.is_sso = True
+            db.session.commit()
+            return existing
+        # user will have an "unusable" password
+        user = register_sso(username)
+        return user
 
     def get_user(self, user_id):
         """Retrieve the user's entry in the User model if it exists"""

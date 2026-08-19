@@ -29,7 +29,7 @@ def email_symbol_asset(email):
     if email.endswith("@hust.edu.cn"):
         group = "hust.png"
     elif ".edu" in email.split("@")[1]:
-        group = "student.jpeg"
+        group = "student.png"
     else:
         group = "hacker.png"
     return url_for("views.themes", path=f"img/dojo/{group}")

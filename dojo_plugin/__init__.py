@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 import datetime
 from email.message import EmailMessage
 from email.utils import formatdate
@@ -13,6 +14,7 @@ from .prometheus_metrics import (
 )
 from flask.json import JSONEncoder
 from itsdangerous.exc import BadSignature
+from sqlalchemy import event
 from marshmallow_sqlalchemy import field_for
 from CTFd.models import db, Challenges, Users
 from CTFd.utils.user import get_current_user
@@ -20,7 +22,7 @@ from CTFd.plugins import register_admin_plugin_menu_bar
 from CTFd.plugins.challenges import CHALLENGE_CLASSES, BaseChallenge
 from CTFd.plugins.flags import FLAG_CLASSES, BaseFlag, FlagException
 
-from .models import Dojos, DojoChallenges, Belts, Emojis
+from .models import Dojos, DojoChallenges, Belts, Emojis, UserProfiles
 from .config import DOJO_HOST, bootstrap
 from .utils import unserialize_user_flag, render_markdown
 from .utils.awards import update_awards
@@ -129,6 +131,49 @@ def redirect_dojo():
             return redirect(redirect_url, code=301)
 
 
+NAME_PATTERN = re.compile(r"[^\s\x00-\x1f\x7f]{1,32}")
+
+
+@event.listens_for(Users, "after_insert")
+def create_user_profile(mapper, connection, target):
+    # every new account gets a row: SSO registration stores the student id,
+    # public registration / bulk import store the registration name
+    connection.execute(
+        UserProfiles.__table__.insert().values(
+            user_id=target.id, original_stu_id=target.name,
+            is_sso=target.oauth_id is not None
+        )
+    )
+
+
+def protect_student_id_and_validate_name():
+    try:
+        if request.method != "PATCH" or request.path != "/api/v1/users/me":
+            return None
+
+        user = get_current_user()
+        if user is None:
+            return None
+
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return None
+
+        # strip identity fields: users must not change their student id / sso flag
+        data.pop("original_stu_id", None)
+        data.pop("is_sso", None)
+
+        # validate name format only when it actually changes
+        name = data.get("name")
+        if name is not None and name != user.name:
+            if not NAME_PATTERN.fullmatch(name):
+                return "Invalid name: must be 1-32 characters with no whitespace or control characters.", 400
+        return None
+    except Exception:
+        # fail open: guard errors must not break profile updates
+        return None
+
+
 def load(app):
     db.create_all()
 
@@ -145,6 +190,7 @@ def load(app):
 
     if not app.debug:
         app.before_request(redirect_dojo)
+    app.before_request(protect_student_id_and_validate_name)
 
     app.register_blueprint(dojos)
     app.register_blueprint(dojo)

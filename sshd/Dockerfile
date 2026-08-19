@@ -8,7 +8,7 @@ RUN apk add --no-cache \
         docker-cli \
         mysql-client
         
-RUN pip3 install --break-system-packages docker
+RUN PIP_ROOT_USER_ACTION=ignore pip3 install --break-system-packages docker
 
 RUN delgroup ping && \
     addgroup -g 999 docker && \

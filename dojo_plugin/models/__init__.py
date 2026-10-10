@@ -724,3 +724,18 @@ class KookUsers(db.Model):
     user = db.relationship("Users")
 
     __repr__ = columns_repr(["user", "kook"])
+
+
+class UserProfiles(db.Model):
+    __tablename__ = "user_profiles"
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    # aligned with Users.name (128) so long public registration names cannot
+    # blow up the profile insert in the after_insert hook
+    original_stu_id = db.Column(db.String(128), unique=True, nullable=False)
+    is_sso = db.Column(db.Boolean, nullable=False, default=False, server_default=db.text("0"))
+
+    user = db.relationship("Users")
+
+    __repr__ = columns_repr(["user", "original_stu_id"])

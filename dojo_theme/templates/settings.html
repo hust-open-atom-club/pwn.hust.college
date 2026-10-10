@@ -16,6 +16,7 @@
         <a class="nav-link" id="settings-discord-tab" data-toggle="pill" href="#discord" role="tab">Discord</a>
         {% endif %}
         <a class="nav-link" id="settings-kook-tab" data-toggle="pill" href="#kook" role="tab">KOOK</a>
+        <a class="nav-link" id="settings-tokens-tab" data-toggle="pill" href="#tokens" role="tab">访问令牌</a>
       </div>
     </div>
     <div class="col-md-8">
@@ -85,14 +86,14 @@
         <div class="tab-pane fade" id="ssh-key" role="tabpanel">
 
           {% if ssh_keys %}
-            <b><label for="enter-name"> 现有 SSH 秘钥</label></b>
+            <b><label> 现有 SSH 秘钥</label></b>
             <br>
 
             {% for key in ssh_keys %}
             <form method="post" id="delete-ssh-key-{{ loop.index }}-form" autocomplete="off">
                 <div class="form-group">
                     <div class="input-group">
-                        <input class="form-control" id="ssh-key" name="ssh_key" type="text" value="{{ key }}" readonly>
+                        <input class="form-control" id="ssh-key-{{ loop.index }}" name="ssh_key" type="text" value="{{ key }}" readonly>
                         <div class="input-group-append ml-1" style="margin: -0.1rem">
                             <button type="submit" class="btn btn-danger" id="delete-ssh-key-button-{{ loop.index }}">
                                 <i class="fas fa-times"></i>
@@ -116,10 +117,10 @@
 
           <form method="post" id="ssh-key-form" autocomplete="off">
             <div class="form-group">
-              <b><label for="enter-name">添加新的 SSH 公钥</label></b>
+              <b><label for="ssh-key-input">添加新的 SSH 公钥</label></b>
               <small class="form-text text-muted"> 用于通过 `SSH` 远程访问挑战关卡 </small>
               <br>
-              <input class="form-control" id="ssh-key" name="ssh_key" type="text" value="">
+              <input class="form-control" id="ssh-key-input" name="ssh_key" type="text" value="">
             </div>
 
             <div id="ssh-key-results" class="form-group">

@@ -731,7 +731,9 @@ class UserProfiles(db.Model):
     user_id = db.Column(
         db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
-    original_stu_id = db.Column(db.String(32), unique=True, nullable=False)
+    # aligned with Users.name (128) so long public registration names cannot
+    # blow up the profile insert in the after_insert hook
+    original_stu_id = db.Column(db.String(128), unique=True, nullable=False)
     is_sso = db.Column(db.Boolean, nullable=False, default=False, server_default=db.text("0"))
 
     user = db.relationship("Users")

@@ -134,7 +134,7 @@ def redirect_dojo():
 NAME_PATTERN = re.compile(r"[^\s\x00-\x1f\x7f]{1,32}")
 
 
-@event.listens_for(Users, "after_insert")
+@event.listens_for(Users, "after_insert", propagate=True)
 def create_user_profile(mapper, connection, target):
     # every new account gets a row: SSO registration stores the student id,
     # public registration / bulk import store the registration name

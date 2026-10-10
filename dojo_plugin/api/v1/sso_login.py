@@ -86,6 +86,12 @@ def register_sso(studentID):
     if errors or oauth_id is None:
         return None
 
+    # 学号可能仍被其他账号的 profile 行占用（如普通注册时用学号当用户名、之后改名），
+    # 插入会撞 original_stu_id 唯一约束，须在建号前拒绝而不是在事务里炸 500
+    if UserProfiles.query.filter_by(original_stu_id=name).first():
+        errors.append("That student id has already been used")
+        return None
+
     user = Users(
         name=name,
         email=email_address,
@@ -116,12 +122,14 @@ class CASBackend(object):
         if username is None:
             return None
         oauth_id = _sso_to_oauth_id(username)
+        # 必须在查询前拒绝非法格式：filter_by(oauth_id=None) 会生成 IS NULL 条件，
+        # 误匹配到任意普通注册账号（oauth_id 为空者），导致认证绕过
+        if oauth_id is None:
+            return None
         user = Users.query.filter_by(oauth_id=oauth_id).first()
 
         if user:
             return user
-        if oauth_id is None:
-            return None
         # 绑定分支：同 email 既有账号（普通注册/管理员建号/历史截断）-> 补绑 oauth_id 并置 SSO 标志
         existing = Users.query.filter_by(
             email=username.strip().lower() + "@hust.edu.cn"

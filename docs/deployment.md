@@ -82,6 +82,40 @@ dojo compose down
 dojo update
 ```
 
+## 数据库凭据与端口 (Database Credentials and Port)
+
+数据库凭据通过 `data/config.env` 注入（compose 以 `--env-file` 读取），缺失时 compose 会明确报错拒绝启动：
+
+- `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD`：**新部署**由 `dojo-init` 自动生成随机值（`openssl rand -hex 24`）并写入 `data/config.env`；**从旧版本升级的部署**（已存在 `data/mysql` 数据卷且未显式配置）会沿用历史值 `ctfd`，以保证存量数据库卷仍可认证，请尽快按下方流程轮换。
+- `MYSQL_USER`（默认 `ctfd`）与 `MYSQL_DATABASE`（默认 `ctfd`）。
+
+密码只允许使用字母、数字与 `.` `_` `-` `~`（RFC 3986 unreserved 字符）：同一值会同时作为 MariaDB 的环境变量和 CTFd `DATABASE_URL` 的一部分，包含保留字符会因 URL 编码歧义导致两端密码不一致，`dojo-init` 会直接拒绝这类值并提示。
+
+mysqld-exporter 的凭据文件 `data/mysql-exporter/.my.cnf` 由 `dojo-init` 在每次启动时按当前密码自动重建（compose 从 `data/` 挂载，不进入 git 目录）。
+
+MariaDB 端口 `13306` 仅绑定在宿主机回环地址（`127.0.0.1:13306:3306`），供本机维护使用，不会暴露到外部接口。平台内部服务（CTFd、exporter 等）均通过 compose 内部网络访问数据库，不经过该端口。
+
+**Docker Engine 版本要求**：Docker Engine 28.0.0 之前的版本存在已知风险——同一二层（L2）网络内的其他主机仍可能直接访问绑定到回环地址的发布端口（28.0.0 起默认网络加固修复了该行为，参见 Docker 官方博客 [Hardening Container Networking by Default](https://www.docker.com/blog/docker-engine-28-hardening-container-networking-by-default)）。生产部署请使用 Docker Engine ≥ 28.0.0，或确保宿主机处于受信任的网络分段。
+
+### 已有部署的密码轮换
+
+`MYSQL_*` 环境变量只在数据库卷首次初始化时生效。对已有 `data/mysql` 卷的部署，按以下步骤轮换密码：
+
+```sh
+# 1. 在数据库中修改密码（用旧密码连接）
+docker exec -it db mysql -p -e "ALTER USER 'ctfd'@'%' IDENTIFIED BY '<新密码>'; FLUSH PRIVILEGES;"
+
+# 2. 写入新的部署配置
+#    在宿主机 dojo 目录的 data/config.env 中加入：
+#    MYSQL_PASSWORD=<新密码>
+
+# 3. 重建受影响的服务
+dojo compose up -d ctfd db
+
+# 4. mysql exporter 的凭据文件（data/mysql-exporter/.my.cnf）由 dojo-init
+#    在容器启动时自动生成，重启 dojo 容器即自动同步，无需手工修改
+```
+
 ## 更新 (Updating)
 
 当更新你的 dojo 部署时，在 `dojo` 源码目录下，官方只支持一种方法：

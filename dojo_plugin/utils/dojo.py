@@ -336,7 +336,7 @@ def dojo_clone(repository_type, repository, private_key):
     else:
         raise ValueError("Invalid repository_type")
 
-    if requests.head(url).status_code != 200:
+    if requests.head(url, timeout=15).status_code != 200:
         url = f"git@{repository_type}.com:{repository}"
     subprocess.run(["git", "clone", "--recurse-submodules", url, clone_dir.name],
                    env={

@@ -38,7 +38,13 @@ function form_fetch_and_show(name, endpoint, method, success_message, confirm_ms
                 results.find("#message").text(success_message);
             } else {
                 results.html(error_template);
-                results.find("#message").html(result.error);
+                results.find("#message").text(result.error);
+                if (result.deploy_url) {
+                    results.find("#message").append(
+                        " ",
+                        $("<a>", { href: result.deploy_url, target: "_blank", text: "open deploy key settings" })
+                    );
+                }
             }
         });
     });
@@ -68,7 +74,7 @@ function button_fetch_and_show(name, endpoint, method,data, success_message, con
                 results.find("#message").text(success_message);
             } else {
                 results.html(error_template);
-                results.find("#message").html(result.error);
+                results.find("#message").text(result.error);
             }
         });
     });

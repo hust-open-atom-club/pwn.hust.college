@@ -43,34 +43,43 @@ function loadScoreboard(duration, page) {
         standings.forEach(user => {
             const row = $(`
             <tr>
-              <td scope="row" class="col-md-1"><b>#${user.rank}</b></td>
+              <td scope="row" class="col-md-1"><b></b></td>
               <td class="col-md-1 p-0">
-                <img src="${user.symbol}" class="scoreboard-symbol">
+                <img class="scoreboard-symbol">
               </td>
               <td class="col-md-4">
-                <a href="${user.url}" class="scoreboard-name text-decoration-none">
+                <a class="scoreboard-name text-decoration-none">
                 </a>
               </td>
               <td class="scoreboard-completions col-md-4">
               </td>
               <td class="col-md-1">
-                <img src="${user.belt}" class="scoreboard-belt">
+                <img class="scoreboard-belt">
               </td>
-              <td class="col-md-1"><b>${user.solves}</b></td>
+              <td class="col-md-1"><b></b></td>
             </tr>
             `);
+            row.find("td").eq(0).find("b").text(`#${user.rank}`);
+            row.find(".scoreboard-symbol").attr("src", user.symbol);
+            row.find(".scoreboard-name").attr("href", user.url);
+            row.find(".scoreboard-belt").attr("src", user.belt);
+            row.find("td").eq(5).find("b").text(user.solves);
             row.find(".scoreboard-name").text(user.name.slice(0, 50));
 
             user.badges.forEach(badge => {
-                if (!badge.url) badge.url = "#";
-                var count = badge.count <= 1 ? "" : `<sub>x${badge.count}</sub>`
-                row.find(".scoreboard-completions").append($(`
-                    <span title="${badge.text}">
-                    <a href="${badge.url}">
-                    <img src="/themes/dojo_theme/static/img/dojo/${badge.emoji}.svg" class="scoreboard-emoji"></img>
-                    </a>${count}
+                const badgeSpan = $(`
+                    <span>
+                    <a>
+                    <img class="scoreboard-emoji"></img>
+                    </a>
                     </span><span> </span>
-                `));
+                `);
+                badgeSpan.first().attr("title", badge.text);
+                badgeSpan.find("a").attr("href", badge.url || "#");
+                badgeSpan.find("img").attr("src", `/themes/dojo_theme/static/img/dojo/${badge.emoji}.svg`);
+                if (badge.count > 1)
+                    badgeSpan.find("a").after($("<sub>").text(`x${badge.count}`));
+                row.find(".scoreboard-completions").append(badgeSpan);
             })
 
             if (result.me && user.user_id == result.me.user_id)

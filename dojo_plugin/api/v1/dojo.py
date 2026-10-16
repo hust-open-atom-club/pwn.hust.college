@@ -48,10 +48,10 @@ def create_dojo_yml(user, spec):
     except AssertionError as e:
         return {"success": False, "error": str(e)}, 400
 
-    except Exception as e:
+    except Exception:
         print("ERROR: Dojo from spec failed", file=sys.stderr, flush=True)
         traceback.print_exc(file=sys.stderr)
-        return {"success": False, "error": str(e)}, 400
+        return {"success": False, "error": "Dojo creation failed"}, 400
 
     return {"success": True, "dojo": dojo.reference_id}, 200
 
@@ -60,7 +60,7 @@ def create_dojo(user, repository_type, repository, public_key, private_key):
 
     try:
         repository_re = r"[\w\-]+/[\w\-]+"
-        assert re.match(repository_re, repository), f"Invalid repository, expected format: <code>{repository_re}</code>"
+        assert re.fullmatch(repository_re, repository), f"Invalid repository, expected format: {repository_re}"
 
         assert not Dojos.query.filter_by(repository=repository).first(), DOJO_EXISTS
 
@@ -86,7 +86,7 @@ def create_dojo(user, repository_type, repository, public_key, private_key):
         traceback.print_exc(file=sys.stderr)
         print(str(e.stderr), file=sys.stderr, flush=True)
         deploy_url = f"https://{repository_type}.com/{repository}/settings/keys"
-        return {"success": False, "error": f'Failed to clone: <a href="{deploy_url}" target="_blank">add deploy key</a>'}, 400
+        return {"success": False, "error": "Failed to clone: add a deploy key", "deploy_url": deploy_url}, 400
 
     except IntegrityError as e:
         return {"success": False, "error": DOJO_EXISTS}, 400
@@ -94,10 +94,10 @@ def create_dojo(user, repository_type, repository, public_key, private_key):
     except AssertionError as e:
         return {"success": False, "error": str(e)}, 400
 
-    except Exception as e:
+    except Exception:
         print(f"ERROR: Dojo failed for {repository}", file=sys.stderr, flush=True)
         traceback.print_exc(file=sys.stderr)
-        return {"success": False, "error": str(e)}, 400
+        return {"success": False, "error": "Dojo creation failed"}, 400
 
     return {"success": True, "dojo": dojo.reference_id}, 200
 

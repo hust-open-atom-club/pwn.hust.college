@@ -40,10 +40,10 @@ function form_fetch_and_show(name, endpoint, method, success_message) {
         }).then(result => {
             if (!result.success) {
                 results.html(error_template);
-                results.find("#message").html(result.error);
+                results.find("#message").text(result.error);
             } else if (result.warning) {
                 results.html(warning_template);
-                results.find("#message").html(result.warning);
+                results.find("#message").text(result.warning);
             } else {
                 results.html(success_template);
                 results.find("#message").text(success_message);

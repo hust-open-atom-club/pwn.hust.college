@@ -181,12 +181,8 @@ function startChallenge(event) {
             item.find(".challenge-name").addClass("challenge-active");
         }
         else {
-            var message = "";
-            message += "Error:";
-            message += "<br>";
-            message += "<code>" + result.error + "</code>";
-            message += "<br>";
-            result_message.html(message);
+            result_message.html("Error:<br><code></code><br>");
+            result_message.find("code").text(result.error);
             result_notification.addClass('alert alert-warning alert-dismissable text-center');
         }
 

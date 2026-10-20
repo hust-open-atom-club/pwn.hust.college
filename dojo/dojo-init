@@ -114,16 +114,50 @@ done
 sysctl -w kernel.pty.max=1048576
 echo core > /proc/sys/kernel/core_pattern
 
-iptables -N DOCKER-USER
-iptables -I DOCKER-USER -i user_network -j DROP
-for host in $(cat $DOJO_DIR/user_firewall.allowed); do
-    iptables -I DOCKER-USER -i user_network -d $(host $host | awk '{print $NF; exit}') -j ACCEPT
-done
-iptables -I DOCKER-USER -i user_network -s 10.114.0.0/24 -m conntrack --ctstate NEW -j ACCEPT
-iptables -I DOCKER-USER -i user_network -s 10.114.0.0/24 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-iptables -I DOCKER-USER -i user_network -d 10.114.0.0/16 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+# East-west filtering on user_network only takes effect when bridged IPv4
+# frames traverse iptables; without this sysctl the rules below silently
+# match nothing while the platform appears fully functional.
+modprobe br_netfilter 2>/dev/null || true
+if [ "$(sysctl -n net.bridge.bridge-nf-call-iptables 2>/dev/null)" != "1" ]; then
+    sysctl -w net.bridge.bridge-nf-call-iptables=1 2>/dev/null
+    if [ "$(sysctl -n net.bridge.bridge-nf-call-iptables 2>/dev/null)" != "1" ]; then
+        echo "ERROR: net.bridge.bridge-nf-call-iptables could not be enabled; user_network isolation would be ineffective. Aborting." >&2
+        exit 1
+    fi
+fi
 
-iptables -I DOCKER-USER -i user_network -p tcp --dport 3000 -j ACCEPT
-iptables -I DOCKER-USER -i user_network -p tcp --dport 9090 -j ACCEPT
-iptables -I DOCKER-USER -o user_network -p tcp --sport 3000 -j ACCEPT
-iptables -I DOCKER-USER -o user_network -p tcp --sport 9090 -j ACCEPT
+# dojo-init is documented as safe to rerun (docs/AGENTS.md), so every insert
+# is guarded against stacking duplicate rules on rerun.
+ensure_docker_user_rule() {
+    iptables -C DOCKER-USER "$@" 2>/dev/null || iptables -I DOCKER-USER "$@"
+}
+
+iptables -N DOCKER-USER 2>/dev/null || true
+
+# Remove monitoring allow rules from earlier versions: student containers must
+# not reach Grafana/Prometheus directly (issue #206); admins use the loopback
+# host ports (PR #202) or the nginx reverse proxy instead.
+delete_docker_user_rule() {
+    # older dojo-init runs may have inserted the same rule many times
+    while iptables -C DOCKER-USER "$@" 2>/dev/null; do
+        iptables -D DOCKER-USER "$@"
+    done
+}
+delete_docker_user_rule -i user_network -p tcp --dport 3000 -j ACCEPT
+delete_docker_user_rule -i user_network -p tcp --dport 9090 -j ACCEPT
+delete_docker_user_rule -o user_network -p tcp --sport 3000 -j ACCEPT
+delete_docker_user_rule -o user_network -p tcp --sport 9090 -j ACCEPT
+
+ensure_docker_user_rule -i user_network -j DROP
+for host in $(cat $DOJO_DIR/user_firewall.allowed); do
+    # `host` prints CNAME chains before A records, so the first line's last
+    # field is not necessarily an address; pull the first IPv4 from the output
+    address="$(host "$host" 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n 1)"
+    case "$address" in
+        ""|*[!0-9.]*) echo "WARNING: allowlisted host '$host' did not resolve to an IPv4 address, skipping" >&2 ;;
+        *) ensure_docker_user_rule -i user_network -d "$address" -j ACCEPT ;;
+    esac
+done
+ensure_docker_user_rule -i user_network -s 10.114.0.0/24 -m conntrack --ctstate NEW -j ACCEPT
+ensure_docker_user_rule -i user_network -s 10.114.0.0/24 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+ensure_docker_user_rule -i user_network -d 10.114.0.0/16 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT

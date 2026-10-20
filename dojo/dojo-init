@@ -22,6 +22,19 @@ define DOCKER_PSLR $(openssl rand -hex 16)
 define UBUNTU_VERSION 22.04
 define INTERNET_FOR_ALL False
 define ARCH $(dpkg --print-architecture)
+# Database credentials: fresh deployments get random passwords; deployments
+# upgrading from the hardcoded-credential era keep the historical value so the
+# existing mysql volume still authenticates (rotation steps in docs/deployment.md)
+MYSQL_PASSWORD_DEFAULT=ctfd
+MYSQL_ROOT_PASSWORD_DEFAULT=ctfd
+if [ ! -d $DOJO_DIR/data/mysql/mysql ]; then
+    MYSQL_PASSWORD_DEFAULT=$(openssl rand -hex 24)
+    MYSQL_ROOT_PASSWORD_DEFAULT=$(openssl rand -hex 24)
+fi
+define MYSQL_PASSWORD $MYSQL_PASSWORD_DEFAULT
+define MYSQL_ROOT_PASSWORD $MYSQL_ROOT_PASSWORD_DEFAULT
+define MYSQL_USER ctfd
+define MYSQL_DATABASE ctfd
 define INSTALL_AFL no # needs compilation
 define INSTALL_ANGR_MANAGEMENT no
 define INSTALL_BURPSUITE no
@@ -39,6 +52,23 @@ define KOOK_APP_ID
 define KOOK_CHANNEL_ID_AWARD
 define KOOK_CHANNEL_ID_WELCOME
 define KOOK_CHANNEL_ID_NOTIFICATION
+
+# The same value feeds MariaDB and the CTFd DATABASE_URL; restrict it to
+# RFC 3986 unreserved characters so the URL never needs percent-encoding
+for credential in MYSQL_PASSWORD MYSQL_ROOT_PASSWORD; do
+    credential_value="$(grep -oP "^${credential}=\K.*" $DOJO_DIR/data/.config.env)"
+    if ! echo "$credential_value" | grep -qP '^[A-Za-z0-9._~-]+$'; then
+        echo "[-] ${credential} must only contain letters, digits, and . _ - ~ (it is embedded in DATABASE_URL verbatim)"
+        exit 1
+    fi
+done
+
+# Regenerate the mysqld-exporter credentials from the resolved config so the
+# exporter keeps working across rotations (mounted via docker-compose.yml)
+mkdir -p $DOJO_DIR/data/mysql-exporter
+EXPORTER_PASSWORD="$(grep -oP '^MYSQL_ROOT_PASSWORD=\K.*' $DOJO_DIR/data/.config.env)"
+printf '[client]\nuser=root\npassword=%s\n' "$EXPORTER_PASSWORD" > $DOJO_DIR/data/mysql-exporter/.my.cnf
+chmod 600 $DOJO_DIR/data/mysql-exporter/.my.cnf
 
 mv $DOJO_DIR/data/.config.env $DOJO_DIR/data/config.env
 . $DOJO_DIR/data/config.env

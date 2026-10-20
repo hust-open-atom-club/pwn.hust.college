@@ -63,22 +63,33 @@ case "$ACTION" in
 
     # HELP: db: launch a mysql client session, connected to the ctfd db
     "db")
-        docker exec $DOCKER_ARGS db mysql -pctfd -Dctfd ctfd "$@"
+        docker exec $DOCKER_ARGS db sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -D"$MYSQL_DATABASE" "$@"' mysql "$@"
         ;;
 
     # HELP: backup: does a dojo db backup into the `data/backups` directory.
     "backup")
         mkdir -p data/backups
-        docker exec db mysqldump -pctfd --single-transaction --routines --triggers ctfd | gzip > "data/backups/db-$(date -Iseconds).sql.gz"
+        BACKUP="data/backups/db-$(date -Iseconds).sql.gz"
+        if ( set -o pipefail; docker exec db sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers "$MYSQL_DATABASE"' | gzip > "$BACKUP" ); then
+            echo "[+] Backup written to $BACKUP"
+        else
+            rm -f "$BACKUP"
+            echo "[-] Backup failed (partial output discarded)" >&2
+            exit 1
+        fi
         ;;
 
     # HELP: restore PATH: restores a dojo db backup. Path arg is relative to the `data/backups` directory
     "restore")
         BACKUP_PATH="data/backups/$1"
         if [ -f "$BACKUP_PATH" ]; then
-            gunzip < "$BACKUP_PATH" | docker exec -i db mysql -pctfd -Dctfd
+            ( set -o pipefail; gunzip < "$BACKUP_PATH" | docker exec -i db sh -c 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -D"$MYSQL_DATABASE"' ) || {
+                echo "[-] Restore failed" >&2
+                exit 1
+            }
         else
             echo "Error: missing file to restore from" >&2
+            exit 1
         fi
         ;;
 

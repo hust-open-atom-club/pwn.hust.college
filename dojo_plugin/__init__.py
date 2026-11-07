@@ -26,6 +26,7 @@ from .models import Dojos, DojoChallenges, Belts, Emojis, UserProfiles
 from .config import DOJO_HOST, bootstrap
 from .utils import unserialize_user_flag, render_markdown
 from .utils.awards import update_awards
+from .qq_notify import qq_notify, QQGroup, QQGroupBinding, notify_user_solve
 from .pages.dojos import dojos, dojos_override
 from .pages.dojo import dojo
 from .pages.workspace import workspace
@@ -59,6 +60,11 @@ class DojoChallenge(BaseChallenge):
     @classmethod
     def solve(cls, user, team, challenge, request):
         super().solve(user, team, challenge, request)
+        try:
+            notify_user_solve(user, challenge)
+        except Exception:
+            from flask import current_app
+            current_app.logger.exception('QQ solve notification failed')
         update_awards(user, challenge)
         # 记录挑战解决指标
         CHALLENGE_SOLVES.labels(
@@ -202,6 +208,7 @@ def load(app):
     app.register_blueprint(belts)
     app.register_blueprint(kook)
     app.register_blueprint(discord)
+    app.register_blueprint(qq_notify)
     app.register_blueprint(api, url_prefix="/pwncollege_api/v1")
 
     # 初始化 Prometheus 指标
@@ -220,6 +227,7 @@ def load(app):
 
     register_admin_plugin_menu_bar("Dojos", "/admin/dojos")
     register_admin_plugin_menu_bar("Desktops", "/admin/desktops")
+    register_admin_plugin_menu_bar("QQ Notifications", "/admin/qq-notify")
 
     if os.path.basename(sys.argv[0]) != "manage.py":
         bootstrap()

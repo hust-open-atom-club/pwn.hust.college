@@ -1,0 +1,104 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="jumbotron"><div class="container"><h1>QQ 解题通知群组</h1></div></div>
+<div class="container">
+  <p class="text-muted">只有平台管理员可以管理群组和绑定码。请使用 QQ 官方机器人的 Group OpenID，而不是 QQ 群号码。群主动推送需要机器人具备对应权限。</p>
+  <h3>添加 QQ 群组</h3>
+  <form id="qq-group-create-form" class="form-inline mb-3">
+    <input class="form-control mr-2 mb-2" name="name" maxlength="128" required placeholder="群组名称，例如网络安全课程群">
+    <input class="form-control mr-2 mb-2" name="group_openid" maxlength="255" required placeholder="QQ Group OpenID" style="min-width: 280px">
+    <button class="btn btn-primary mb-2" type="submit">新增并生成绑定码</button>
+  </form>
+  <div id="qq-admin-results" role="status" aria-live="polite"></div>
+  <div id="qq-code-panel" class="alert alert-warning" style="display:none">
+    <strong>绑定码仅在本次操作后展示。请立即安全保存并提供给需要订阅的用户：</strong>
+    <pre class="mt-2 mb-1" id="qq-generated-code"></pre>
+    <small>数据库只保存 SHA-256 摘要。重置绑定码不会取消已有用户绑定。</small>
+  </div>
+  <hr>
+  <h3>已登记群组</h3>
+  <p><button type="button" class="btn btn-outline-secondary btn-sm" onclick="location.reload()">刷新列表</button></p>
+  <div class="table-responsive">
+    <table class="table table-striped">
+      <thead><tr><th>群名称</th><th>Group OpenID</th><th>绑定人数</th><th>状态</th><th>操作</th></tr></thead>
+      <tbody>
+        {% for group in groups %}
+        <tr>
+          <td>{{ group.name }}</td>
+          <td><code>{{ group.group_openid }}</code></td>
+          <td>{{ group.bindings | length }}</td>
+          <td>{% if group.enabled %}已启用{% else %}已停用{% endif %}</td>
+          <td>
+            <button type="button" class="btn btn-outline-primary btn-sm qq-admin-action" data-action="rotate" data-group="{{ group.id }}">重置绑定码</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm qq-admin-action" data-action="toggle" data-group="{{ group.id }}">{% if group.enabled %}停用{% else %}启用{% endif %}</button>
+            <button type="button" class="btn btn-outline-danger btn-sm qq-admin-action" data-action="delete" data-group="{{ group.id }}">删除</button>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5">尚未配置任何 QQ 群组。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const results = document.getElementById('qq-admin-results');
+  const panel = document.getElementById('qq-code-panel');
+  const codeText = document.getElementById('qq-generated-code');
+  async function post(url, body = {}) {
+    const response = await CTFd.fetch(url, {
+      method: 'POST', credentials: 'same-origin',
+      headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.error || '操作失败');
+    return data;
+  }
+  document.getElementById('qq-group-create-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector('button[type=submit]');
+    button.disabled = true;
+    try {
+      const name = form.elements.name.value.trim();
+      const group_openid = form.elements.group_openid.value.trim();
+      const data = await post('/qq-notify/admin/groups', {name, group_openid});
+      panel.style.display = 'block';
+      codeText.textContent = data.bind_code;
+      results.textContent = '群组已创建。请复制绑定码，然后点击刷新列表。';
+      form.reset();
+    } catch (error) { results.textContent = error.message; }
+    finally { button.disabled = false; }
+  });
+  document.querySelectorAll('.qq-admin-action').forEach(button => {
+    button.addEventListener('click', async () => {
+      const action = button.dataset.action;
+      const id = Number(button.dataset.group);
+      const warning = action === 'delete'
+        ? '删除群组将同时删除所有学生对该群的订阅，确定继续？'
+        : action === 'rotate' ? '重置后旧绑定码立即失效，已有订阅不受影响。确定继续？'
+        : '确定切换群组启用状态？';
+      if (!confirm(warning)) return;
+      button.disabled = true;
+      try {
+        const data = await post(`/qq-notify/admin/groups/${id}/${action}`);
+        if (data.bind_code) {
+          panel.style.display = 'block';
+          codeText.textContent = data.bind_code;
+          results.textContent = '绑定码已重置。请立即复制新绑定码。';
+        } else {
+          location.reload();
+        }
+      } catch (error) { results.textContent = error.message; }
+      finally { button.disabled = false; }
+    });
+  });
+});
+</script>
+{% endblock %}

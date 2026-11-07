@@ -1,0 +1,8 @@
+# Copy to data/qq_notify.yaml on your pwn.hust.college server.
+# The data/ folder is git-ignored by the upstream repository.
+# chmod 600 data/qq_notify.yaml
+qq:
+  enabled: false  # Change to true after obtaining active group message permission.
+  app_id: ""
+  app_secret: ""
+# QQ groups and one-time-view binding codes are created in /admin/qq-notify.

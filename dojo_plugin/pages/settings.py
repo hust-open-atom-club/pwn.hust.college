@@ -7,6 +7,7 @@ from CTFd.utils.user import get_current_user
 
 from ..models import SSHKeys, DiscordUsers
 from ..utils.kook import get_kook_user
+from ..qq_notify import user_qq_groups
 from ..config import DISCORD_CLIENT_ID
 from ..utils.discord import get_discord_member, discord_avatar_asset
 
@@ -21,6 +22,7 @@ def settings_override():
     ssh_keys = SSHKeys.query.filter_by(user_id=user.id).all()
 
     kook_user = get_kook_user(user.id)
+    qq_groups = user_qq_groups(user.id)
 
     discord_user = DiscordUsers.query.filter_by(user=user).first()
     discord_id = discord_user.discord_id if discord_user else None
@@ -46,6 +48,7 @@ def settings_override():
         prevent_name_change=prevent_name_change,
         infos=infos,
         kook_user=kook_user,
+        qq_groups=qq_groups,
         discord_enabled=bool(DISCORD_CLIENT_ID),
         discord_user=discord_user,
         discord_member=discord_member,

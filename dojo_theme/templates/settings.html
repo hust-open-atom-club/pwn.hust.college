@@ -16,6 +16,7 @@
         <a class="nav-link" id="settings-discord-tab" data-toggle="pill" href="#discord" role="tab">Discord</a>
         {% endif %}
         <a class="nav-link" id="settings-kook-tab" data-toggle="pill" href="#kook" role="tab">KOOK</a>
+        <a class="nav-link" id="settings-qq-tab" data-toggle="pill" href="#qq-notify" role="tab">QQ 通知</a>
         <a class="nav-link" id="settings-tokens-tab" data-toggle="pill" href="#tokens" role="tab">访问令牌</a>
       </div>
     </div>
@@ -177,6 +178,31 @@
           {% endif %}
         </div>
 
+        <div class="tab-pane fade" id="qq-notify" role="tabpanel">
+          <h3>QQ 解题通知</h3>
+          <p class="text-muted">输入管理员提供的绑定码。解题成功后，机器人将通知你订阅的群组；不需要填写 QQ 号。</p>
+          <form id="qq-bind-form" class="mb-3">
+            <div class="form-group">
+              <label for="qq-bind-code">群组绑定码</label>
+              <input id="qq-bind-code" name="code" class="form-control" maxlength="128" required autocomplete="off">
+            </div>
+            <button type="submit" class="btn btn-primary">绑定群组</button>
+          </form>
+          <div id="qq-bind-result" role="status" aria-live="polite"></div>
+          <h4>已绑定群组</h4>
+          <ul class="list-group mb-3">
+          {% for group in qq_groups %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <span>{{ group.name }} {% if not group.enabled %}<small class="text-muted">（已停用）</small>{% endif %}</span>
+              <button type="button" class="btn btn-outline-danger btn-sm qq-unbind" data-group="{{ group.id }}">解绑</button>
+            </li>
+          {% else %}
+            <li class="list-group-item text-muted">尚未绑定任何群组。</li>
+          {% endfor %}
+          </ul>
+          <p class="text-muted">绑定码只用于订阅通知，不验证你是否在 QQ 群中。请不要将绑定码公开发布。</p>
+        </div>
+
         <div class="tab-pane fade" id="tokens" role="tabpanel">
           {% with form = Forms.self.TokensForm() %}
           <form method="POST" id="user-token-form">
@@ -230,4 +256,48 @@
 
 {% block scripts %}
 <script defer src="{{ url_for('views.themes', path='js/dojo/settings.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  async function post(url, body) {
+    const response = await CTFd.fetch(url, {
+      method: 'POST', credentials: 'same-origin',
+      headers: {Accept: 'application/json', 'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.error || '操作失败');
+    return data;
+  }
+  const form = document.getElementById('qq-bind-form');
+  const result = document.getElementById('qq-bind-result');
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const button = form.querySelector('button[type=submit]');
+    button.disabled = true;
+    try {
+      const data = await post('/qq-notify/bind', {code: form.elements.code.value.trim()});
+      result.textContent = '绑定成功：' + data.group.name;
+      form.reset();
+      window.location.assign('/settings#qq-notify');
+    } catch (error) { result.textContent = error.message; }
+    finally { button.disabled = false; }
+  });
+  document.querySelectorAll('.qq-unbind').forEach(button => {
+    button.addEventListener('click', async () => {
+      if (!confirm('确定解绑该 QQ 群组？')) return;
+      button.disabled = true;
+      try {
+        await post('/qq-notify/unbind/' + Number(button.dataset.group), {});
+        window.location.assign('/settings#qq-notify');
+      } catch (error) {
+        result.textContent = error.message;
+        button.disabled = false;
+      }
+    });
+  });
+  if (location.hash === '#qq-notify' && window.jQuery) {
+    jQuery('a[href="#qq-notify"]').tab('show');
+  }
+});
+</script>
 {% endblock %}

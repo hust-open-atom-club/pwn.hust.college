@@ -1,7 +1,7 @@
 name: astrbot_plugin_pwncollege
 display_name: PWN College 只读查询
 desc: QQ 官方机器人查询 pwn.hust.college 的公开道馆、模块、题面和排名
-version: 1.1.0
+version: 1.2.0
 author: lthhk
 repo: https://github.com/lthhk/pwn.hust.college
 support_platforms:

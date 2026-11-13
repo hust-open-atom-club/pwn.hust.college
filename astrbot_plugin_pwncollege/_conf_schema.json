@@ -1,0 +1,8 @@
+{
+  "read_token": {
+    "type": "string",
+    "description": "PWN 只读 Bot API 共享密钥，与服务端 PWN_BOT_READ_TOKEN 相同；至少 32 字符",
+    "hint": "只授予公开数据查询，不要填写 CTFd 用户/管理员 API Token",
+    "default": ""
+  }
+}

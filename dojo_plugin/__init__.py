@@ -40,6 +40,7 @@ from .pages.index import static_html_override
 from .pages.kook import kook
 from .pages.discord import discord
 from .api import api
+from .bot_readonly import bot_readonly
 
 
 class DojoChallenge(BaseChallenge):
@@ -210,6 +211,7 @@ def load(app):
     app.register_blueprint(discord)
     app.register_blueprint(qq_notify)
     app.register_blueprint(api, url_prefix="/pwncollege_api/v1")
+    app.register_blueprint(bot_readonly)
 
     # 初始化 Prometheus 指标
     init_metrics()

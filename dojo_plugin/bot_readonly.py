@@ -1,7 +1,7 @@
-"""Dedicated, strictly read-only public-data API for enabled QQ groups.
+"""Group-scoped, strictly read-only API for dojo catalog and ranking data.
 
-No CTFd user token, no challenge/container mutation, no private dojo access.
-Caller must supply an enabled QQ group OpenID.
+No CTFd user token, no challenge/container mutation, and no inheritance of an
+administrator or student session. Caller must supply an enabled QQ group OpenID.
 """
 
 import re
@@ -38,25 +38,16 @@ def no_cache(response):
     return response
 
 
-def _is_public_dojo(dojo):
-    """Avoid exporting course/hidden/password-protected learning materials."""
-    return (
-        not dojo.password
-        and dojo.type not in ("hidden", "course")
-        and (dojo.official or dojo.type == "public")
-    )
+def _is_queryable_dojo(dojo):
+    """Allow official catalog dojos and unprotected public dojos."""
+    return not dojo.password and (dojo.official or dojo.type == "public")
 
 
-def _dojo(value, *, content=False):
+def _dojo(value):
     if not DOJO_RE.fullmatch(value):
         abort(404)
     dojo = Dojos.from_id(value).first()
-    # Only universally public dojos; never inherit an admin or student session.
-    if not dojo or not _is_public_dojo(dojo):
-        abort(404)
-    # The web UI gates these challenges behind completion of prerequisite dojos.
-    # No QQ identity -> CTFd identity link is available, so fail closed for content.
-    if content and dojo.id in DOJO_PREREQUISITES:
+    if not dojo or not _is_queryable_dojo(dojo):
         abort(404)
     return dojo
 
@@ -125,23 +116,23 @@ def _rankings(model):
 
 
 @bot_readonly.get("/dojos")
-def public_dojos():
+def list_dojos():
     dojos = Dojos.query.filter(
         (Dojos.official.is_(True)) |
         ((Dojos.data["type"] == "public") & (Dojos.password.is_(None)))
-    ).order_by(*Dojos.ordering()).limit(200).all()
-    return {"dojos": [_dojo_data(dojo) for dojo in dojos if _is_public_dojo(dojo)][:100]}
+    ).order_by(*Dojos.ordering()).all()
+    return {"dojos": [_dojo_data(dojo) for dojo in dojos]}
 
 
 @bot_readonly.get("/dojos/<dojo_id>/modules")
-def public_modules(dojo_id):
-    dojo = _dojo(dojo_id, content=True)
+def list_modules(dojo_id):
+    dojo = _dojo(dojo_id)
     return {"dojo": _dojo_data(dojo), "modules": [_module_data(m) for m in dojo.modules if any(c.visible() for c in m.challenges)][:100]}
 
 
 @bot_readonly.get("/dojos/<dojo_id>/modules/<module_id>/challenges")
-def public_challenges(dojo_id, module_id):
-    dojo = _dojo(dojo_id, content=True)
+def list_challenges(dojo_id, module_id):
+    dojo = _dojo(dojo_id)
     module = _module(dojo, module_id)
     return {
         "dojo": _dojo_data(dojo),
@@ -151,8 +142,8 @@ def public_challenges(dojo_id, module_id):
 
 
 @bot_readonly.get("/dojos/<dojo_id>/modules/<module_id>/challenges/<challenge_id>")
-def public_challenge(dojo_id, module_id, challenge_id):
-    dojo = _dojo(dojo_id, content=True)
+def get_challenge(dojo_id, module_id, challenge_id):
+    dojo = _dojo(dojo_id)
     module = _module(dojo, module_id)
     return {
         "dojo": _dojo_data(dojo),
@@ -162,13 +153,13 @@ def public_challenge(dojo_id, module_id, challenge_id):
 
 
 @bot_readonly.get("/dojos/<dojo_id>/rankings")
-def public_dojo_ranking(dojo_id):
+def get_dojo_ranking(dojo_id):
     dojo = _dojo(dojo_id)
     return {"dojo": _dojo_data(dojo), **_rankings(dojo)}
 
 
 @bot_readonly.get("/dojos/<dojo_id>/modules/<module_id>/rankings")
-def public_module_ranking(dojo_id, module_id):
+def get_module_ranking(dojo_id, module_id):
     dojo = _dojo(dojo_id)
     module = _module(dojo, module_id)
     return {"dojo": _dojo_data(dojo), "module": _module_data(module), **_rankings(module)}
